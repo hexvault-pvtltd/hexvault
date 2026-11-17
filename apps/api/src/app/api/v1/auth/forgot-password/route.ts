@@ -1,0 +1,9 @@
+import { randomBytes } from "node:crypto";
+import { z } from "zod";
+import { hashToken } from "@core/lib/auth";
+import { db } from "@core/lib/db";
+import { sendMail } from "@core/lib/email";
+import { fail, ok } from "@core/lib/http";
+import { NextRequest } from "next/server";
+const schema=z.object({email:z.string().email().max(254)});
+export async function POST(request:NextRequest){try{const {email:raw}=schema.parse(await request.json());const email=raw.trim().toLowerCase();const ip=request.headers.get("x-forwarded-for")?.split(",")[0]?.trim()??"unknown";const since=new Date(Date.now()-60*60*1000);const count=await db.loginEvent.count({where:{ip,success:false,createdAt:{gte:since}}});if(count<6){await db.loginEvent.create({data:{emailAttempted:email,success:false,ip,userAgent:request.headers.get("user-agent")}});const user=await db.user.findUnique({where:{email}});if(user?.status==="ACTIVE"){const token=randomBytes(32).toString("base64url");const expiresAt=new Date(Date.now()+30*60*1000);const saved=await db.passwordResetToken.create({data:{userId:user.id,tokenHash:hashToken(token),expiresAt}});try{const link=`${process.env.APP_URL??new URL(request.url).origin}/reset-password?token=${encodeURIComponent(token)}`;await sendMail({to:user.email,subject:"Reset your HEXVAULT password",text:`Use this one-time link to reset your password. It expires in 30 minutes: ${link}`,html:`<p>Use this one-time link to reset your password. It expires in 30 minutes.</p><p><a href="${link}">Reset password</a></p>`});}catch(error){await db.passwordResetToken.delete({where:{id:saved.id}});console.error("password_reset_email_failed",error instanceof Error?error.name:"unknown");}}}return ok({message:"If an active account matches that address, reset instructions will be sent."});}catch(error){return fail(error);}}
