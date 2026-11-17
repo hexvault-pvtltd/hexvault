@@ -5,6 +5,7 @@ import { db } from "@core/lib/db";
 import { visibleEmployeeIds } from "@core/lib/scope";
 import { InviteEmployeeButton } from "@/components/invite-employee-button";
 import { EmployeeLifecycleActions } from "@/components/employee-lifecycle-actions";
+import { EmployeePasswordUpdate } from "@/components/employee-password-update";
 
 export default async function EmployeeDetail({ params }: { params: Promise<{ employeeId: string }> }) {
   const user = await currentUser();
@@ -33,6 +34,7 @@ export default async function EmployeeDetail({ params }: { params: Promise<{ emp
         {canInvite && !employee.user && <InviteEmployeeButton employeeId={employee.id} owner={user?.roles.includes("OWNER") ?? false} />}
       </div>
     </div>
+    {canInvite && employee.user?.status === "ACTIVE" && <section className="mb-5 rounded-xl border border-slate-200 bg-white p-5"><h2 className="text-sm font-semibold">Account security</h2><p className="mt-1 text-xs text-slate-500">Set a temporary password for this employee. Their active sessions will be signed out.</p><div className="mt-4"><EmployeePasswordUpdate employeeId={employee.id} /></div></section>}
     <div className="grid gap-5 lg:grid-cols-[1.1fr_.9fr]">
       <section className="rounded-xl border border-slate-200 bg-white p-5"><h2 className="text-sm font-semibold">Employee information</h2><div className="mt-5 grid grid-cols-2 gap-5">
         <div><p className="text-[10px] text-slate-400">Work email</p><p className="mt-1 text-xs font-medium">{employee.workEmail}</p></div>

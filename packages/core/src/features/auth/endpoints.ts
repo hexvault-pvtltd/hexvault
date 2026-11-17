@@ -1,9 +1,7 @@
-import { randomBytes } from "node:crypto";
 import { hash } from "bcryptjs";
 import { z } from "zod";
 import { currentUser, hashToken, SESSION_COOKIE, sessionCookieSecure } from "@core/lib/auth";
 import { db } from "@core/lib/db";
-import { sendMail } from "@core/lib/email";
 import { fail, ok } from "@core/lib/http";
 import { NextRequest, NextResponse } from "next/server";
 
@@ -19,27 +17,45 @@ export async function forgotPassword(request: NextRequest) {
     const count = await db.loginEvent.count({ where: { ip, success: false, createdAt: { gte: since } } });
     if (count < 6) {
       await db.loginEvent.create({ data: { emailAttempted: email, success: false, ip, userAgent: request.headers.get("user-agent") } });
-      const user = await db.user.findUnique({ where: { email } });
+      const user = await db.user.findUnique({
+        where: { email },
+        select: { id: true, email: true, status: true, employee: { select: { id: true, fullName: true } } },
+      });
       if (user?.status === "ACTIVE") {
-        const token = randomBytes(32).toString("base64url");
-        const expiresAt = new Date(Date.now() + 30 * 60 * 1000);
-        const saved = await db.passwordResetToken.create({ data: { userId: user.id, tokenHash: hashToken(token), expiresAt } });
-        try {
-          const link = `${process.env.APP_URL ?? new URL(request.url).origin}/reset-password?token=${encodeURIComponent(token)}`;
-          await sendMail({ to: user.email, subject: "Reset your HEXVAULT password", text: `Use this one-time link to reset your password. It expires in 30 minutes: ${link}`, html: `<p>Use this one-time link to reset your password. It expires in 30 minutes.</p><p><a href="${link}">Reset password</a></p>` });
-        } catch (error) {
-          await db.passwordResetToken.delete({ where: { id: saved.id } });
-          const mailError = error && typeof error === "object" ? error as { name?: unknown; code?: unknown; responseCode?: unknown; command?: unknown } : null;
-          console.error("password_reset_email_failed", {
-            name: typeof mailError?.name === "string" ? mailError.name : "unknown",
-            code: typeof mailError?.code === "string" ? mailError.code : undefined,
-            responseCode: typeof mailError?.responseCode === "number" ? mailError.responseCode : undefined,
-            command: typeof mailError?.command === "string" ? mailError.command : undefined,
+        const administrators = await db.user.findMany({
+          where: {
+            status: "ACTIVE",
+            roles: { some: { revokedAt: null, role: { code: { in: ["OWNER", "HR"] } } } },
+          },
+          select: { id: true },
+        });
+        if (administrators.length) {
+          await db.$transaction(async tx => {
+            await tx.notification.createMany({
+              data: administrators.map(admin => ({
+                recipientUserId: admin.id,
+                type: "PASSWORD_RESET_REQUESTED",
+                payload: {
+                  userId: user.id,
+                  email: user.email,
+                  employeeId: user.employee?.id ?? null,
+                  employeeName: user.employee?.fullName ?? null,
+                },
+              })),
+            });
+            await tx.auditLog.create({
+              data: {
+                action: "auth.password_reset_requested",
+                resourceType: "user",
+                resourceId: user.id,
+                metadata: { requestedByEmail: user.email },
+              },
+            });
           });
         }
       }
     }
-    return ok({ message: "If an active account matches that address, reset instructions will be sent." });
+    return ok({ message: "If an active account matches that address, the password reset request will be sent to HR or an Owner." });
   } catch (error) { return fail(error); }
 }
 
