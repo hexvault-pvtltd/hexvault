@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import Image from "next/image";
-import { usePathname, useRouter } from "next/navigation";
+import { usePathname } from "next/navigation";
 import { useEffect, useRef, useState, type KeyboardEvent as ReactKeyboardEvent } from "react";
 import {
   Activity, Bell, BriefcaseBusiness, Building2, CalendarDays, ChevronDown, Cloud,
@@ -51,7 +51,6 @@ function trapDialogFocus(event: ReactKeyboardEvent<HTMLElement>) {
 
 export function Workspace({ children, name, role, roles }: { children: React.ReactNode; name: string; role: string; roles: string[] }) {
   const pathname = usePathname();
-  const router = useRouter();
   const visibleGroups = navigation.map((group) => ({ ...group, links: group.links.filter(([, href]) => allowed(href, roles)) })).filter((group) => group.links.length > 0);
   const currentGroup = visibleGroups.find((group) => group.links.some(([, href]) => isActive(pathname, href)))?.title ?? "Overview";
   const currentPageLabel = visibleGroups.flatMap((group) => group.links).filter(([, href]) => isActive(pathname, href)).sort((a, b) => b[1].length - a[1].length)[0]?.[0] ?? "Dashboard";
@@ -68,6 +67,15 @@ export function Workspace({ children, name, role, roles }: { children: React.Rea
   useEffect(() => {
     document.documentElement.classList.remove("dark");
     localStorage.removeItem("hexvault-theme");
+  }, []);
+  useEffect(() => {
+    // Browsers can restore protected pages directly from the back-forward
+    // cache without asking the server to recheck the session cookie.
+    const revalidateRestoredPage = (event: PageTransitionEvent) => {
+      if (event.persisted) window.location.reload();
+    };
+    window.addEventListener("pageshow", revalidateRestoredPage);
+    return () => window.removeEventListener("pageshow", revalidateRestoredPage);
   }, []);
   useEffect(() => {
     if (!mobileOpen && !profileOpen) return;
@@ -87,7 +95,7 @@ export function Workspace({ children, name, role, roles }: { children: React.Rea
     try {
       const response = await fetch("/api/v1/auth/logout", { method: "POST" });
       if (!response.ok) { setLogoutError("Sign out did not complete. Please retry."); return; }
-      router.push("/login"); router.refresh();
+      window.location.replace("/login");
     } catch { setLogoutError("Could not reach the server. You are still signed in."); }
     finally { setLogoutBusy(false); }
   }
