@@ -29,8 +29,19 @@ export async function inviteEmployee(request: NextRequest) {
     const employee = await db.employee.findUnique({ where: { id: input.employeeId }, select: { id: true, fullName: true, workEmail: true, userId: true } });
     if (!employee) return NextResponse.json({ error: { code: "NOT_FOUND", message: "Employee not found." } }, { status: 404 });
     if (employee.userId) return NextResponse.json({ error: { code: "CONFLICT", message: "Employee already has an account." } }, { status: 409 });
-    const role = await db.role.findUnique({ where: { code: input.role } });
-    if (!role) return NextResponse.json({ error: { code: "INVALID_ROLE", message: "Role is not configured." } }, { status: 422 });
+    const roleNames = {
+      OWNER: "Owner",
+      DEPARTMENT_HEAD: "Department Head",
+      HR: "Human Resources",
+      TEAM_LEAD: "Team Lead",
+      STAFF: "Staff",
+      INTERN: "Intern",
+    };
+    const role = await db.role.upsert({
+      where: { code: input.role },
+      update: {},
+      create: { code: input.role, name: roleNames[input.role] },
+    });
 
     const token = randomBytes(32).toString("base64url");
     const tokenHash = hashToken(token);
