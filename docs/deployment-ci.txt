@@ -1,0 +1,50 @@
+HEXVAULT CI and deployment
+
+GitHub Actions runs on pull requests targeting main and pushes to main. The
+HEXVAULT validation job installs the lockfile, generates Prisma Client,
+checks both TypeScript projects, runs lint and any package test scripts, and
+builds both apps. No test script is currently defined; adding one causes it
+to run. CI does not deploy or apply migrations. Vercel Git integration owns
+preview and production deployments, avoiding a second deployment from Actions.
+
+Required GitHub settings (repository administrator):
+1. Settings > Branches (or Rules > Rulesets): protect main.
+2. Require pull requests, at least one approval and conversation resolution.
+3. Require the GitHub Actions check "HEXVAULT validation" to pass on the
+   latest commit; require branches to be up to date before merging. The check
+   must first have run successfully before GitHub offers it in the selector.
+4. Block force pushes and deletions. Apply the rules to administrators and
+   remove bypass permissions; restrict direct pushes to main. Verify this with
+   an actual pull request and an unauthorized direct push attempt.
+
+Vercel settings (project administrator):
+1. Link this repository once, set production branch to main, and enable Git
+   deployments. Verify PRs get a preview and merges create one production
+   deployment. Disable duplicate separately linked Vercel projects if present.
+2. If available on your Vercel plan, configure Deployment Checks to require
+   the GitHub validation status before promoting production builds. Check
+   Vercel's documented limitations for GitHub checks before enabling it.
+   Without this or effective GitHub protection with no bypass, a direct push,
+   administrator bypass or manual deployment can release unvalidated code.
+3. Store application secrets in Vercel environment variables with separate
+   Preview and Production values. This workflow requires no GitHub secrets.
+   Use isolated preview services and do not expose secrets to untrusted PRs.
+   Configure Supabase DATABASE_URL, DIRECT_URL, AUTH_SECRET, encryption key,
+   storage and Brevo SMTP values as required by the application. Keep these
+   values out of Git, Actions logs, and pull request comments.
+
+Migrations are a separate controlled production step. Review migration SQL,
+confirm a recoverable backup and correct target, and run prisma migrate deploy
+using the Supabase session pooler/direct URL. Never run migrate reset against
+production. Plan application and migration compatibility before rollout.
+
+Deployment verification checklist:
+[ ] CI passes for the exact reviewed commit; branch protection blocks failures.
+[ ] Preview deployment uses isolated data and verifies login and key workflows.
+[ ] Production environment variables and Supabase migration status are correct.
+[ ] Vercel production deployment and /api/health/ready succeed.
+[ ] Verify sign-in, an authorized API action and Brevo delivery safely.
+[ ] Check Vercel logs and retain a tested rollback and database recovery plan.
+
+Enforcement is not active until the repository and Vercel settings above are
+configured and verified. A successful local build does not prove deployment.
