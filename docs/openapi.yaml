@@ -1,0 +1,598 @@
+openapi: 3.1.0
+info:
+  title: HEXVAULT API
+  version: 1.0.0
+  description: Implemented API subset. The full endpoint inventory in plan.md remains outstanding.
+servers:
+  - url: /api/v1
+components:
+  securitySchemes:
+    sessionCookie:
+      type: apiKey
+      in: cookie
+      name: hv_session
+  schemas:
+    Error:
+      type: object
+      properties:
+        error:
+          type: object
+          required: [code, message]
+          properties:
+            code: { type: string }
+            message: { type: string }
+            details: { type: object }
+security:
+  - sessionCookie: []
+paths:
+  /auth/login:
+    post:
+      security: []
+      summary: Authenticate and set a secure session cookie
+      responses:
+        '200': { description: Session established }
+        '401': { description: Invalid credentials }
+        '422': { description: Invalid input }
+        '429': { description: Too many attempts }
+  /auth/me:
+    get:
+      summary: Read current user and roles
+      responses:
+        '200': { description: Current user }
+        '401': { description: Unauthenticated }
+  /employees:
+    get:
+      summary: List employees in the caller's scope
+      responses:
+        '200': { description: Scoped employee list }
+        '401': { description: Unauthenticated }
+    post:
+      summary: Create an employee record (Owner/HR)
+      responses:
+        '201': { description: Employee created }
+        '403': { description: Forbidden }
+  /employees/{id}/status:
+    post:
+      summary: Suspend or reactivate an employee account (Owner only)
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        '200': { description: Employee status changed, with active sessions revoked on suspension }
+        '403': { description: Forbidden }
+        '409': { description: Exited employees require the rehire workflow }
+        '422': { description: Invalid status or reason }
+  /employees/{id}/rehire:
+    post:
+      summary: Rehire a former employee and create a new employment period (Owner only)
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        '201': { description: Employee reactivated and new employment period created }
+        '403': { description: Forbidden }
+        '409': { description: Employee is not eligible for rehire }
+        '422': { description: Invalid rehire data }
+  /attendance/check-in:
+    post:
+      summary: Start an attendance session for the current employee
+      responses:
+        '201': { description: Attendance session created }
+        '409': { description: Session already open }
+  /attendance/check-out:
+    post:
+      summary: Close the current attendance session
+      responses:
+        '200': { description: Attendance session closed }
+        '409': { description: No open session or break is active }
+  /attendance/corrections:
+    get:
+      summary: List attendance correction requests in the caller's scope
+      responses:
+        '200': { description: Scoped correction requests }
+        '401': { description: Unauthenticated }
+    post:
+      summary: Request a correction for the current employee's attendance
+      responses:
+        '201': { description: Correction request created }
+        '409': { description: A pending correction already exists for the work date }
+        '422': { description: Invalid correction data }
+  /attendance/corrections/{id}/decision:
+    post:
+      summary: Approve or reject a scoped attendance correction (Owner/HR/Department Head)
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        '200': { description: Decision saved; approved session changes and event are persisted atomically }
+        '403': { description: Forbidden or outside caller scope }
+        '409': { description: Request already decided }
+  /shifts:
+    get:
+      summary: List shift definitions
+      responses:
+        '200': { description: Shift list }
+    post:
+      summary: Create a shift definition (Owner/HR)
+      responses:
+        '201': { description: Shift created }
+        '403': { description: Forbidden }
+  /shifts/{id}:
+    get:
+      summary: Read a shift definition
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        '200': { description: Shift definition }
+        '404': { description: Shift not found }
+    patch:
+      summary: Update a shift definition (Owner/HR)
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        '200': { description: Shift updated }
+        '403': { description: Forbidden }
+    delete:
+      summary: Deactivate a shift without removing historical assignments (Owner/HR)
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        '200': { description: Shift deactivated }
+  /shift-assignments:
+    get:
+      summary: List shift assignments in the caller's employee scope
+      responses:
+        '200': { description: Scoped shift assignments }
+    post:
+      summary: Assign a shift to an employee with a bounded effective date range (Owner/HR)
+      responses:
+        '201': { description: Shift assignment created }
+        '409': { description: Employee already has an overlapping assignment }
+  /shift-assignments/{id}:
+    patch:
+      summary: Change an assignment end date (Owner/HR)
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        '200': { description: Assignment updated }
+        '409': { description: End date overlaps another assignment }
+    delete:
+      summary: Delete an unused assignment (Owner/HR); attendance history prevents deletion
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        '200': { description: Assignment deleted }
+        '409': { description: Assignment has attendance history }
+  /holidays:
+    get:
+      summary: List company and department holidays
+      responses:
+        '200': { description: Holiday calendar }
+    post:
+      summary: Add a holiday (Owner/HR)
+      responses:
+        '201': { description: Holiday created }
+        '409': { description: Duplicate holiday }
+  /holidays/{id}:
+    patch:
+      summary: Update a holiday (Owner/HR)
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        '200': { description: Holiday updated }
+        '404': { description: Holiday not found }
+    delete:
+      summary: Delete a holiday (Owner/HR)
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        '200': { description: Holiday deleted }
+  /leave/types:
+    get:
+      summary: List active leave types or all types to HR/Owner
+      responses:
+        '200': { description: Leave type list }
+    post:
+      summary: Create a leave policy type (Owner/HR)
+      responses:
+        '201': { description: Leave type created }
+        '403': { description: Forbidden }
+  /leave/types/{id}:
+    patch:
+      summary: Change annual allowance or deactivate a leave type (Owner/HR)
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        '200': { description: Leave policy updated }
+        '404': { description: Leave type not found }
+  /leave/balances:
+    get:
+      summary: Read leave balances within the caller's employee scope
+      parameters:
+        - in: query
+          name: year
+          schema: { type: integer }
+      responses:
+        '200': { description: Balances and remaining allowance }
+  /leave/requests/{id}/cancel:
+    post:
+      summary: Cancel a pending request or a future approved request and reverse its balance usage
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        '200': { description: Request cancelled }
+        '403': { description: Forbidden }
+        '409': { description: Leave has already started or the balance conflicts }
+  /files/upload-init:
+    post:
+      summary: Create an expiring private upload intent for an authorized employee document
+      responses:
+        '201': { description: Signed storage form and upload record }
+        '403': { description: Forbidden for the employee or document scope }
+        '413': { description: File exceeds the 10 MB policy }
+        '503': { description: Private storage is not configured }
+  /files/upload-complete:
+    post:
+      summary: Verify uploaded object metadata and signature, then scan before marking clean
+      responses:
+        '200': { description: Upload verified and scanned }
+        '422': { description: Invalid, unsupported, or infected file }
+        '503': { description: Storage or malware scanner is unavailable; object remains quarantined }
+  /files/{id}/download:
+    get:
+      summary: Authorize a clean file and return a 60-second private signed download URL
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        '200': { description: Short-lived signed download URL }
+        '403': { description: Forbidden by document visibility policy }
+        '409': { description: File has not cleared malware scanning }
+  /employees/{id}/documents:
+    get:
+      summary: List visible documents for an employee
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        '200': { description: Authorized document metadata without storage keys }
+        '403': { description: Forbidden }
+    post:
+      summary: Attach a clean uploaded file to an employee record
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        '201': { description: Document and first immutable version created }
+        '409': { description: File is not clean or is already attached }
+  /documents/{id}:
+    get:
+      summary: Read a document and its version metadata after visibility authorization
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        '200': { description: Authorized document metadata }
+        '403': { description: Forbidden }
+    patch:
+      summary: Update document category, visibility, or expiry within role policy
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        '200': { description: Metadata updated and audited }
+        '403': { description: Forbidden }
+    delete:
+      summary: Delete a document, its versions, and unshared private objects
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        '200': { description: Document deleted }
+        '502': { description: Storage deletion failed; metadata remains }
+  /documents/{id}/versions:
+    get:
+      summary: List authorized document versions
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        '200': { description: Version list }
+        '403': { description: Forbidden }
+    post:
+      summary: Add a scanned version and update the current file pointer transactionally
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        '201': { description: New version created }
+        '409': { description: File is not clean or already attached }
+  /tasks:
+    get:
+      summary: List tasks in the caller's assignment scope
+      responses:
+        '200': { description: Scoped tasks }
+    post:
+      summary: Create a task (Owner/Department Head/Team Lead)
+      responses:
+        '201': { description: Task created }
+        '403': { description: Forbidden or assignee outside scope }
+  /tasks/{id}:
+    get:
+      summary: Get task details and scoped activity (Owner/HR/assignee/manager scope)
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        '200': { description: Task, assignees, comments, dependencies, reviews, and history }
+        '403': { description: Forbidden or outside scope }
+        '404': { description: Task not found }
+    patch:
+      summary: Update task fields within department or team scope
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        '200': { description: Task updated and audited }
+        '403': { description: Forbidden }
+        '422': { description: Invalid task fields }
+  /tasks/{id}/status:
+    post:
+      summary: Change task status as assignee or scoped manager
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        '200': { description: Status saved with immutable history }
+        '403': { description: Forbidden }
+        '409': { description: Invalid task transition }
+  /tasks/{id}/assign:
+    post:
+      summary: Assign an active employee to a task within manager scope
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        '201': { description: Task assignment created }
+        '403': { description: Forbidden or employee outside scope }
+        '409': { description: Employee inactive or already assigned }
+  /tasks/{id}/unassign:
+    post:
+      summary: End an active task assignment while preserving assignment history
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        '200': { description: Assignment ended and audited }
+        '403': { description: Forbidden }
+  /tasks/{id}/comments:
+    get:
+      summary: List comments for a task in caller scope
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        '200': { description: Comments with employee display names }
+    post:
+      summary: Add a comment to a task in caller scope
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        '201': { description: Comment created }
+        '403': { description: Task outside scope }
+  /tasks/{id}/comments/{commentId}:
+    patch:
+      summary: Edit own task comment (Owner may moderate)
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema: { type: string, format: uuid }
+        - in: path
+          name: commentId
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        '200': { description: Comment updated and audited }
+        '403': { description: Not the comment author }
+    delete:
+      summary: Delete own task comment (Owner may moderate)
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema: { type: string, format: uuid }
+        - in: path
+          name: commentId
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        '200': { description: Comment removed and audited }
+  /tasks/{id}/history:
+    get:
+      summary: List immutable task status history in caller scope
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        '200': { description: Status changes in descending event order }
+        '403': { description: Task outside scope }
+  /tasks/{id}/dependencies:
+    get:
+      summary: List visible task dependencies and dependents
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        '200': { description: Dependency relationships filtered to caller scope }
+    post:
+      summary: Add a dependency within the same project while rejecting cycles
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        '201': { description: Dependency created and audited }
+        '409': { description: Cross-project relationship, duplicate, or dependency cycle }
+        '403': { description: Forbidden }
+  /tasks/{id}/dependencies/{dependsOnTaskId}:
+    delete:
+      summary: Remove a dependency while preserving the audit event
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema: { type: string, format: uuid }
+        - in: path
+          name: dependsOnTaskId
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        '200': { description: Dependency removed }
+        '403': { description: Forbidden }
+  /leave/requests:
+    get:
+      summary: List leave requests in the caller's scope
+      responses:
+        '200': { description: Scoped leave requests }
+    post:
+      summary: Submit a leave request for the current employee
+      responses:
+        '201': { description: Leave request created }
+  /projects:
+    get:
+      summary: List projects in the caller's scope
+      responses:
+        '200': { description: Scoped projects }
+    post:
+      summary: Create a project (Owner/Department Head)
+      responses:
+        '201': { description: Project created }
+  /projects/{id}:
+    get:
+      summary: Get project details in caller scope
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        '200': { description: Project details and task summary }
+        '403': { description: Project outside caller scope }
+    patch:
+      summary: Update project metadata, timeline, or status within project scope
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        '200': { description: Project updated and audited }
+        '403': { description: Forbidden }
+  /projects/{id}/members:
+    get:
+      summary: List active members in a project the caller can access
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        '200': { description: Active project memberships }
+        '403': { description: Project outside caller scope }
+    post:
+      summary: Add or rejoin an active employee with a project role
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        '201': { description: Membership created }
+        '200': { description: Historical membership reactivated }
+        '403': { description: Employee or project outside caller scope }
+        '409': { description: Employee inactive or already an active member }
+  /projects/{id}/members/{employeeId}:
+    delete:
+      summary: End a project membership while preserving its history
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema: { type: string, format: uuid }
+        - in: path
+          name: employeeId
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        '200': { description: Membership ended and audited }
+        '403': { description: Forbidden }
