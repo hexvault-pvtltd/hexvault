@@ -1,0 +1,106 @@
+@import "tailwindcss";
+
+:root {
+  color-scheme: light;
+  --outer: #d4d4d4;
+  --workspace: #f3f3f3;
+  --background: #f3f3f3;
+  --foreground: #171717;
+  --muted: #858585;
+  --accent: #171717;
+  --accent-strong: #292929;
+  --accent-soft: #f1f1f1;
+  --border: #e8e8e8;
+  --panel: #ffffff;
+  --secondary: #f4f4f4;
+  --success: #3e765b;
+  --warning: #896d35;
+  --error: #a04444;
+}
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-muted: var(--muted);
+  --color-accent: var(--accent);
+  --color-border: var(--border);
+  --color-panel: var(--panel);
+  --color-secondary: var(--secondary);
+  --font-sans: Arial, Helvetica, sans-serif;
+}
+
+html.dark {
+  color-scheme: dark;
+  --outer: #161616;
+  --workspace: #202020;
+  --background: #202020;
+  --foreground: #f3f3f3;
+  --muted: #aaa;
+  --accent: #f3f3f3;
+  --accent-strong: #fff;
+  --accent-soft: #303030;
+  --border: #383838;
+  --panel: #272727;
+  --secondary: #303030;
+  --success: #83b99b;
+  --warning: #d4b878;
+  --error: #e29494;
+}
+
+*, *::before, *::after { box-sizing: border-box; }
+html { min-width: 320px; min-height: 100%; background: var(--outer); scroll-behavior: smooth; }
+body { min-height: 100vh; margin: 0; background: var(--outer); color: var(--foreground); font-family: Arial, Helvetica, sans-serif; text-rendering: optimizeLegibility; -webkit-font-smoothing: antialiased; }
+button, input, select, textarea { font: inherit; }
+button:not(:disabled) { cursor: pointer; }
+button:disabled { cursor: not-allowed; opacity: .6; }
+:focus-visible { outline: 2px solid #737373; outline-offset: 2px; }
+::selection { background: #d9d9d9; color: #171717; }
+
+/* Map remaining legacy utility colors onto the V5 monochrome theme. */
+[class*="bg-[#f46327]"], [class*="bg-[#dc4b12]"], [class*="bg-[#ff794f]"], [class*="bg-[#f16a40]"] { background-color: #171717 !important; }
+[class*="hover:bg-[#dc4b12]"]:hover, [class*="hover:bg-[#f16a40]"]:hover { background-color: #292929 !important; }
+[class*="text-[#f46327]"], [class*="text-[#dc4b12]"], [class*="text-[#c74410]"], [class*="text-[#c75534]"], [class*="text-[#d86644]"], [class*="text-[#e97550]"] { color: #292929 !important; }
+[class*="bg-[#fff1e9]"], [class*="bg-[#fff0ea]"] { background-color: #f1f1f1 !important; }
+[class*="bg-[#211c46]"] { background-color: #171717 !important; }
+
+/* Keep legacy utility-built forms and tables consistent with shared V5 surfaces. */
+input:not([type="checkbox"]):not([type="radio"]), select, textarea { border-radius: 10px; }
+table { border-color: var(--border); }
+table tbody tr { transition: background-color .15s ease; }
+table tbody tr:hover { background-color: #f7f7f7; }
+html.dark table tbody tr:hover { background-color: #303030; }
+a, button { -webkit-tap-highlight-color: transparent; }
+
+/* Page-level wrappers should use the workspace width; compact forms and dialogs
+   inside those pages can keep their own readable widths. */
+.workspace-main > * { width: 100%; max-width: none; margin-left: 0; margin-right: 0; }
+
+.dark body { background: var(--outer); color: var(--foreground); }
+.dark .bg-white, .dark .bg-white\/95 { background-color: var(--panel) !important; }
+.dark .bg-slate-50, .dark .bg-slate-50\/70, .dark .bg-gray-50 { background-color: #292929 !important; }
+.dark .bg-slate-100, .dark .bg-gray-100 { background-color: #303030 !important; }
+.dark .bg-slate-200 { background-color: #3a3a3a !important; }
+.dark .text-slate-900, .dark .text-slate-800, .dark .text-slate-700, .dark .text-gray-900, .dark .text-gray-800 { color: #f3f3f3 !important; }
+.dark .text-slate-600, .dark .text-slate-500, .dark .text-gray-600, .dark .text-gray-500 { color: #b2b2b2 !important; }
+.dark .text-slate-400, .dark .text-gray-400 { color: #909090 !important; }
+.dark .border-slate-100, .dark .border-slate-200, .dark .border-slate-300, .dark .border-gray-100, .dark .border-gray-200 { border-color: var(--border) !important; }
+.dark .divide-slate-100 > :not([hidden]) ~ :not([hidden]), .dark .divide-slate-200 > :not([hidden]) ~ :not([hidden]) { border-color: var(--border) !important; }
+.dark input, .dark select, .dark textarea { background-color: #272727; color: var(--foreground); border-color: var(--border); }
+.dark input::placeholder, .dark textarea::placeholder { color: #898989; }
+.dark table thead { background-color: #292929; }
+.dark .bg-emerald-50 { background-color: #203329 !important; }.dark .text-emerald-700 { color: #9bc7ad !important; }
+.dark .bg-amber-50 { background-color: #382f1f !important; }.dark .text-amber-700 { color: #d8c28f !important; }
+.dark .bg-rose-50 { background-color: #382424 !important; }.dark .text-rose-600, .dark .text-rose-700 { color: #e39a9a !important; }
+.dark .bg-blue-50, .dark .bg-violet-50 { background-color: #2b2b2b !important; }
+.dark [class*="bg-[#f5f5f4]"], .dark [class*="bg-[#f8f8f6]"], .dark [class*="bg-[#f7f7f5]"], .dark [class*="bg-[#f1f1ef]"] { background-color: #303030 !important; }
+.dark [class*="bg-[#fff0ea]"], .dark [class*="bg-[#fff1e9]"] { background-color: #303030 !important; }
+.dark [class*="text-[#25251f]"], .dark [class*="text-[#55554f]"], .dark [class*="text-[#4d4d47]"], .dark [class*="text-[#45453f]"] { color: #f3f3f3 !important; }
+.dark [class*="text-[#686862]"], .dark [class*="text-[#777772]"], .dark [class*="text-[#898989]"] { color: #aaa !important; }
+.dark [class*="border-[#ececea]"], .dark [class*="border-[#f0f0ed]"], .dark [class*="border-[#f6f6f4]"] { border-color: var(--border) !important; }
+.dark [class*="bg-[#211c46]"] { background-color: #272727 !important; }
+
+@media (max-width: 639px) {
+  body { overflow-x: hidden; }
+  table { min-width: 620px; }
+}
+@media (prefers-reduced-motion: reduce) { *, *::before, *::after { scroll-behavior: auto !important; animation-duration: .01ms !important; animation-iteration-count: 1 !important; transition-duration: .01ms !important; } }
