@@ -26,7 +26,9 @@ export default function LoginPage() {
         headers: { "content-type": "application/json" },
         body: JSON.stringify({ email: form.get("email"), password: form.get("password") }),
       });
-      const result = await response.json();
+      const result = await response.json().catch(() => null);
+
+      if (!result) throw new Error("The sign-in service is unavailable. Please try again later.");
 
       if (!response.ok) throw new Error(result.error?.message ?? "We couldn’t sign you in. Check your details and try again.");
       router.replace("/dashboard");
