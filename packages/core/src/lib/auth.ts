@@ -3,7 +3,9 @@ import { cookies, headers } from "next/headers";
 import { db } from "@core/lib/db";
 
 export const SESSION_COOKIE = "hv_session";
-export function sessionCookieSecure() { return process.env.NODE_ENV === "production" && process.env.APP_URL?.startsWith("https://") === true; }
+// Production deployments are served over HTTPS. Do not make cookie security
+// depend on APP_URL being configured in every Vercel environment.
+export function sessionCookieSecure() { return process.env.NODE_ENV === "production"; }
 export function hashToken(token: string) { return createHash("sha256").update(token).digest("hex"); }
 export async function currentUser() {
   const token = (await cookies()).get(SESSION_COOKIE)?.value;
