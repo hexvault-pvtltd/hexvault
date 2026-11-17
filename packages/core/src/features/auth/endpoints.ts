@@ -29,7 +29,13 @@ export async function forgotPassword(request: NextRequest) {
           await sendMail({ to: user.email, subject: "Reset your HEXVAULT password", text: `Use this one-time link to reset your password. It expires in 30 minutes: ${link}`, html: `<p>Use this one-time link to reset your password. It expires in 30 minutes.</p><p><a href="${link}">Reset password</a></p>` });
         } catch (error) {
           await db.passwordResetToken.delete({ where: { id: saved.id } });
-          console.error("password_reset_email_failed", error instanceof Error ? error.name : "unknown");
+          const mailError = error && typeof error === "object" ? error as { name?: unknown; code?: unknown; responseCode?: unknown; command?: unknown } : null;
+          console.error("password_reset_email_failed", {
+            name: typeof mailError?.name === "string" ? mailError.name : "unknown",
+            code: typeof mailError?.code === "string" ? mailError.code : undefined,
+            responseCode: typeof mailError?.responseCode === "number" ? mailError.responseCode : undefined,
+            command: typeof mailError?.command === "string" ? mailError.command : undefined,
+          });
         }
       }
     }
