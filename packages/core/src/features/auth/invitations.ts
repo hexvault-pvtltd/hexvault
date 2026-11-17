@@ -10,7 +10,11 @@ const inviteSchema = z.object({
   employeeId: z.string().uuid(),
   role: z.enum(["OWNER", "DEPARTMENT_HEAD", "HR", "TEAM_LEAD", "STAFF", "INTERN"]).default("STAFF"),
 });
-const acceptSchema = z.object({ token: z.string().min(32).max(200), password: z.string().min(14).max(200) });
+const acceptSchema = z.object({
+  token: z.string().min(32).max(200),
+  password: z.string().min(14).max(200),
+  confirmPassword: z.string().min(14).max(200),
+}).refine(input => input.password === input.confirmPassword, { path: ["confirmPassword"], message: "Passwords do not match." });
 const onboardingItems = ["Review company handbook", "Complete security and privacy orientation", "Meet your team lead", "Set up required work tools"];
 
 export async function inviteEmployee(request: NextRequest) {
@@ -26,7 +30,7 @@ export async function inviteEmployee(request: NextRequest) {
       return NextResponse.json({ error: { code: "FORBIDDEN", message: "HR can invite new staff and interns; other roles require an Owner." } }, { status: 403 });
     }
 
-    const employee = await db.employee.findUnique({ where: { id: input.employeeId }, select: { id: true, fullName: true, workEmail: true, userId: true } });
+    const employee = await db.employee.findUnique({ where: { id: input.employeeId }, select: { id: true, fullName: true, workEmail: true, phone: true, userId: true } });
     if (!employee) return NextResponse.json({ error: { code: "NOT_FOUND", message: "Employee not found." } }, { status: 404 });
     if (employee.userId) return NextResponse.json({ error: { code: "CONFLICT", message: "Employee already has an account." } }, { status: 409 });
     const roleNames = {
@@ -59,7 +63,7 @@ export async function inviteEmployee(request: NextRequest) {
     });
 
     const invitationUrl = `${process.env.APP_URL ?? new URL(request.url).origin}/accept-invitation?token=${encodeURIComponent(token)}`;
-    return ok({ invitationCreated: true, employeeName: employee.fullName, email, role: input.role, invitationUrl, expiresAt }, 201);
+    return ok({ invitationCreated: true, employeeName: employee.fullName, email, whatsappNumber: employee.phone, role: input.role, invitationUrl, expiresAt }, 201);
   } catch (error) {
     return fail(error);
   }

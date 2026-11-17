@@ -31,7 +31,7 @@ export default async function EmployeeDetail({ params }: { params: Promise<{ emp
         {canViewDocuments && <Link href={`/workforce/${employee.id}/documents`} className="rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs font-semibold">Documents</Link>}
         {user?.roles.includes("OWNER") && <Link href={`/workforce/${employee.id}/notes`} className="rounded-lg border border-violet-200 bg-violet-50 px-3 py-2 text-xs font-semibold text-violet-800">Private notes</Link>}
         {user?.roles.some(role => ["OWNER", "HR"].includes(role)) && <Link href={`/workforce/${employee.id}/edit`} className="rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs font-semibold">Edit profile</Link>}
-        {canInvite && !employee.user && <InviteEmployeeButton employeeId={employee.id} owner={user?.roles.includes("OWNER") ?? false} />}
+        {canInvite && !employee.user && <InviteEmployeeButton employeeId={employee.id} whatsappNumber={employee.phone} owner={user?.roles.includes("OWNER") ?? false} />}
       </div>
     </div>
     {canInvite && employee.user?.status === "ACTIVE" && <section className="mb-5 rounded-xl border border-slate-200 bg-white p-5"><h2 className="text-sm font-semibold">Account security</h2><p className="mt-1 text-xs text-slate-500">Set a temporary password for this employee. Their active sessions will be signed out.</p><div className="mt-4"><EmployeePasswordUpdate employeeId={employee.id} /></div></section>}
@@ -39,7 +39,7 @@ export default async function EmployeeDetail({ params }: { params: Promise<{ emp
       <section className="rounded-xl border border-slate-200 bg-white p-5"><h2 className="text-sm font-semibold">Employee information</h2><div className="mt-5 grid grid-cols-2 gap-5">
         <div><p className="text-[10px] text-slate-400">Work email</p><p className="mt-1 text-xs font-medium">{employee.workEmail}</p></div>
         <div><p className="text-[10px] text-slate-400">Department</p><p className="mt-1 text-xs font-medium">{employee.department?.name ?? "Unassigned"}</p></div>
-        <div><p className="text-[10px] text-slate-400">Phone</p><p className="mt-1 text-xs font-medium">{employee.phone ?? "—"}</p></div>
+        <div><p className="text-[10px] text-slate-400">WhatsApp number</p><p className="mt-1 text-xs font-medium">{employee.phone ?? "—"}</p></div>
         <div><p className="text-[10px] text-slate-400">Teams</p><p className="mt-1 text-xs font-medium">{employee.memberships.map(item => item.team.name).join(", ") || "—"}</p></div>
         <div><p className="text-[10px] text-slate-400">Account</p><p className="mt-1 text-xs font-medium">{employee.user?.status ?? "Invitation not sent"}</p></div>
       </div></section>

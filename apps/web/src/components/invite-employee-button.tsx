@@ -5,12 +5,13 @@ import { useState } from "react";
 type Invitation = {
   employeeName: string;
   email: string;
+  whatsappNumber: string | null;
   role: string;
   invitationUrl: string;
   expiresAt: string;
 };
 
-export function InviteEmployeeButton({ employeeId, owner }: { employeeId: string; owner: boolean }) {
+export function InviteEmployeeButton({ employeeId, whatsappNumber, owner }: { employeeId: string; whatsappNumber: string | null; owner: boolean }) {
   const [invitation, setInvitation] = useState<Invitation | null>(null);
   const [message, setMessage] = useState("");
   const [role, setRole] = useState("STAFF");
@@ -68,6 +69,7 @@ export function InviteEmployeeButton({ employeeId, owner }: { employeeId: string
     {invitation && whatsappTemplate && <div className="basis-full max-w-xl rounded-xl border border-emerald-200 bg-emerald-50 p-4">
       <p className="text-xs font-semibold text-emerald-900">Invitation link created</p>
       <p className="mt-1 text-[10px] text-emerald-800">This link can activate the account. Share it only with the intended employee. It is shown here until you leave or refresh this page.</p>
+      <p className="mt-2 text-[10px] text-emerald-900"><span className="font-semibold">Send to WhatsApp:</span> {invitation.whatsappNumber || whatsappNumber || "No number saved; add one in Edit profile."}</p>
       <label className="mt-3 block text-[10px] font-semibold text-emerald-900">WhatsApp message template<textarea readOnly value={whatsappTemplate} rows={6} className="mt-1 block w-full resize-y rounded-lg border border-emerald-200 bg-white p-3 font-normal text-slate-700" /></label>
       <button type="button" onClick={copyTemplate} className="mt-3 rounded-lg bg-emerald-800 px-3 py-2 text-[10px] font-semibold text-white">Copy WhatsApp message</button>
     </div>}

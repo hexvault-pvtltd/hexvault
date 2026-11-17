@@ -34,7 +34,7 @@ export function EmployeePasswordUpdate({ employeeId }: { employeeId: string }) {
     `Login: ${credentials.loginUrl}`,
     `Email: ${credentials.loginEmail}`,
     `Temporary password: ${credentials.temporaryPassword}`,
-    "Please sign in and use Forgot password to set a personal password.",
+    "After signing in, open Account settings to change this temporary password.",
   ].join("\n");
 
   async function copyTemplate() {

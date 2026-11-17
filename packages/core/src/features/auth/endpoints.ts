@@ -1,4 +1,4 @@
-import { hash } from "bcryptjs";
+import { compare, hash } from "bcryptjs";
 import { z } from "zod";
 import { currentUser, hashToken, SESSION_COOKIE, sessionCookieSecure } from "@core/lib/auth";
 import { db } from "@core/lib/db";
@@ -7,6 +7,36 @@ import { NextRequest, NextResponse } from "next/server";
 
 const forgotSchema = z.object({ email: z.string().email().max(254) });
 const resetSchema = z.object({ token: z.string().min(32).max(200), password: z.string().min(14).max(200) });
+const changePasswordSchema = z.object({
+  currentPassword: z.string().min(1).max(200),
+  newPassword: z.string().min(14).max(200),
+  confirmPassword: z.string().min(14).max(200),
+}).refine(input => input.newPassword === input.confirmPassword, { path: ["confirmPassword"], message: "Passwords do not match." });
+
+export async function changePassword(request: NextRequest) {
+  try {
+    const user = await currentUser();
+    if (!user) return NextResponse.json({ error: { code: "UNAUTHENTICATED", message: "Sign in to continue." } }, { status: 401 });
+    const { currentPassword, newPassword } = changePasswordSchema.parse(await request.json());
+    if (!await compare(currentPassword, user.passwordHash)) {
+      return NextResponse.json({ error: { code: "CURRENT_PASSWORD_INCORRECT", message: "Your current password is incorrect." } }, { status: 400 });
+    }
+    if (await compare(newPassword, user.passwordHash)) {
+      return NextResponse.json({ error: { code: "PASSWORD_UNCHANGED", message: "Choose a password different from your current password." } }, { status: 400 });
+    }
+
+    const passwordHash = await hash(newPassword, 12);
+    await db.$transaction(async tx => {
+      await tx.user.update({ where: { id: user.id }, data: { passwordHash } });
+      await tx.session.updateMany({ where: { userId: user.id, id: { not: user.sessionId }, revokedAt: null }, data: { revokedAt: new Date() } });
+      await tx.passwordResetToken.deleteMany({ where: { userId: user.id } });
+      await tx.auditLog.create({ data: { actorId: user.id, action: "auth.password_changed", resourceType: "user", resourceId: user.id } });
+    });
+    return ok({ passwordChanged: true, otherSessionsRevoked: true });
+  } catch (error) {
+    return fail(error);
+  }
+}
 
 export async function forgotPassword(request: NextRequest) {
   try {

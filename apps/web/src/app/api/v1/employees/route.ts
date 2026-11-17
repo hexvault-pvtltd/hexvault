@@ -8,6 +8,7 @@ const createSchema = z.object({
   employeeCode: z.string().trim().min(2).max(32),
   fullName: z.string().trim().min(2).max(120),
   workEmail: z.string().email().max(254),
+  phone: z.string().trim().max(40).optional(),
   title: z.string().trim().max(120).optional(),
   departmentId: z.string().uuid().optional(),
 }).strict();
@@ -28,6 +29,7 @@ export async function POST(request: NextRequest) {
           employeeCode: input.employeeCode,
           fullName: input.fullName,
           workEmail: email,
+          phone: input.phone || null,
           title: input.title || null,
           departmentId: input.departmentId ?? null,
         },

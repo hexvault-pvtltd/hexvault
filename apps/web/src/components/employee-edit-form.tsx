@@ -50,7 +50,7 @@ export function EmployeeEditForm({ employeeId }: { employeeId: string }) {
       <label className="block text-xs font-semibold">Work email<input required type="email" name="workEmail" defaultValue={employee.workEmail} className="mt-2 block h-10 w-full rounded-lg border border-slate-200 px-3 text-sm" /></label>
       <div className="grid gap-4 sm:grid-cols-2">
         <label className="block text-xs font-semibold">Job title<input name="title" maxLength={120} defaultValue={employee.title ?? ""} className="mt-2 block h-10 w-full rounded-lg border border-slate-200 px-3 text-sm" /></label>
-        <label className="block text-xs font-semibold">Phone<input name="phone" maxLength={40} defaultValue={employee.phone ?? ""} className="mt-2 block h-10 w-full rounded-lg border border-slate-200 px-3 text-sm" /></label>
+        <label className="block text-xs font-semibold">WhatsApp number<input type="tel" name="phone" maxLength={40} placeholder="+91 98765 43210" defaultValue={employee.phone ?? ""} className="mt-2 block h-10 w-full rounded-lg border border-slate-200 px-3 text-sm" /></label>
       </div>
       <label className="block text-xs font-semibold">Department<select name="departmentId" defaultValue={employee.department?.id ?? ""} className="mt-2 block h-10 w-full rounded-lg border border-slate-200 bg-white px-3 text-sm"><option value="">Unassigned</option>{departments.map(department => <option key={department.id} value={department.id}>{department.name}{department.active ? "" : " (inactive)"}</option>)}</select></label>
       {error && <p role="alert" className="text-xs text-rose-600">{error}</p>}
