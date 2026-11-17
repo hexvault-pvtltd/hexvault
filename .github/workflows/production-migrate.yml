@@ -1,0 +1,44 @@
+name: Production database migrations
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: production-database-migrations
+  cancel-in-progress: false
+
+jobs:
+  migrate:
+    name: Apply reviewed Prisma migrations
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    environment: production-migrations
+    steps:
+      - name: Check out main
+        uses: actions/checkout@v4
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - name: Install dependencies
+        run: npm ci
+      - name: Validate migration connection settings
+        env:
+          DIRECT_URL: ${{ secrets.SUPABASE_MIGRATION_URL }}
+        run: |
+          node -e 'try { const u = new URL(process.env.DIRECT_URL); if (!["postgres:", "postgresql:"].includes(u.protocol) || !u.hostname.endsWith(".pooler.supabase.com") || u.port !== "5432" || !u.username || !u.password) throw new Error(); } catch { console.error("Set SUPABASE_MIGRATION_URL to the Supabase session pooler URL on port 5432."); process.exit(1); }'
+      - name: Apply migrations
+        env:
+          DATABASE_URL: ${{ secrets.SUPABASE_MIGRATION_URL }}
+          DIRECT_URL: ${{ secrets.SUPABASE_MIGRATION_URL }}
+        run: npx prisma migrate deploy
+      - name: Check migration status
+        env:
+          DATABASE_URL: ${{ secrets.SUPABASE_MIGRATION_URL }}
+          DIRECT_URL: ${{ secrets.SUPABASE_MIGRATION_URL }}
+        run: npx prisma migrate status

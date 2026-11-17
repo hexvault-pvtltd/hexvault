@@ -38,6 +38,18 @@ confirm a recoverable backup and correct target, and run prisma migrate deploy
 using the Supabase session pooler/direct URL. Never run migrate reset against
 production. Plan application and migration compatibility before rollout.
 
+To run migrations through GitHub Actions, create the GitHub environment
+production-migrations, restrict it to main, and configure required reviewers
+where supported by your plan. In that environment add the secret
+SUPABASE_MIGRATION_URL with the intended project's Supabase session pooler
+connection string (port 5432, including its database password). Verify the
+project reference and a recoverable backup before approval. After the workflow
+is on main, select Actions > Production database migrations > Run workflow >
+main. Approve the environment deployment if required. The job applies all
+pending migrations and checks status; it does not create the Owner account.
+Environment protections and reviewer availability depend on GitHub plan and
+repository visibility; confirm the protections are actually enforced.
+
 Deployment verification checklist:
 [ ] CI passes for the exact reviewed commit; branch protection blocks failures.
 [ ] Preview deployment uses isolated data and verifies login and key workflows.
