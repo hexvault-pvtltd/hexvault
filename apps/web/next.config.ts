@@ -11,6 +11,7 @@ const nextConfig: NextConfig = {
   webpack(config) {
     config.resolve.alias = {
       ...config.resolve.alias,
+      "@": path.resolve(process.cwd(), "src"),
       "@core": path.resolve(root, "packages/core/src")
     };
     return config;
