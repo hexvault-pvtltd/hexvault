@@ -1,0 +1,13 @@
+**/node_modules
+**/.next
+**/.git
+/archive
+**/coverage
+**/test-results
+**/playwright-report
+hexvault-temp
+.env
+.env.*
+!.env.example
+*.tsbuildinfo
+npm-debug.log*
