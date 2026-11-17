@@ -1,0 +1,2 @@
+CREATE INDEX "ManagementNote_employeeId_followUpAt_createdAt_idx" ON "ManagementNote"("employeeId", "followUpAt", "createdAt");
+CREATE INDEX "ManagementNoteRevision_noteId_editedAt_idx" ON "ManagementNoteRevision"("noteId", "editedAt");
