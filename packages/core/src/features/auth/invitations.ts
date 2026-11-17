@@ -30,9 +30,9 @@ export async function inviteEmployee(request: NextRequest) {
       return NextResponse.json({ error: { code: "FORBIDDEN", message: "HR can invite new staff and interns; other roles require an Owner." } }, { status: 403 });
     }
 
-    const employee = await db.employee.findUnique({ where: { id: input.employeeId }, select: { id: true, fullName: true, workEmail: true, phone: true, userId: true } });
+    const employee = await db.employee.findUnique({ where: { id: input.employeeId }, select: { id: true, fullName: true, workEmail: true, phone: true, userId: true, user: { select: { id: true, status: true } } } });
     if (!employee) return NextResponse.json({ error: { code: "NOT_FOUND", message: "Employee not found." } }, { status: 404 });
-    if (employee.userId) return NextResponse.json({ error: { code: "CONFLICT", message: "Employee already has an account." } }, { status: 409 });
+    if (employee.user && employee.user.status !== "INVITED") return NextResponse.json({ error: { code: "CONFLICT", message: "This employee already has an active account." } }, { status: 409 });
     const roleNames = {
       OWNER: "Owner",
       DEPARTMENT_HEAD: "Department Head",
@@ -52,18 +52,22 @@ export async function inviteEmployee(request: NextRequest) {
     const expiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
     const email = employee.workEmail.trim().toLowerCase();
     await db.$transaction(async tx => {
-      const account = await tx.user.create({
-        data: { email, passwordHash: await hash(randomBytes(48).toString("base64url"), 12), status: "INVITED", employee: { connect: { id: employee.id } } },
-      });
+      const account = employee.user
+        ? employee.user
+        : await tx.user.create({
+            data: { email, passwordHash: await hash(randomBytes(48).toString("base64url"), 12), status: "INVITED", employee: { connect: { id: employee.id } } },
+          });
+      await tx.invitation.updateMany({ where: { employeeId: employee.id, acceptedAt: null }, data: { acceptedAt: new Date() } });
+      await tx.userRole.updateMany({ where: { userId: account.id, revokedAt: null }, data: { revokedAt: new Date() } });
       await tx.userRole.create({ data: { userId: account.id, roleId: role.id, assignedBy: actor.id } });
       await tx.invitation.create({ data: { email, employeeId: employee.id, tokenHash, invitedBy: actor.id, expiresAt } });
       await tx.auditLog.create({
-        data: { actorId: actor.id, action: "employee.invited", resourceType: "employee", resourceId: employee.id, metadata: { role: input.role, channel: "whatsapp_manual" } },
+        data: { actorId: actor.id, action: employee.user ? "employee.invitation_resent" : "employee.invited", resourceType: "employee", resourceId: employee.id, metadata: { role: input.role, channel: "whatsapp_manual" } },
       });
     });
 
     const invitationUrl = `${process.env.APP_URL ?? new URL(request.url).origin}/accept-invitation?token=${encodeURIComponent(token)}`;
-    return ok({ invitationCreated: true, employeeName: employee.fullName, email, whatsappNumber: employee.phone, role: input.role, invitationUrl, expiresAt }, 201);
+    return ok({ invitationCreated: true, resent: Boolean(employee.user), employeeName: employee.fullName, email, whatsappNumber: employee.phone, role: input.role, invitationUrl, expiresAt }, 201);
   } catch (error) {
     return fail(error);
   }

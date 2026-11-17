@@ -3,6 +3,7 @@
 import { useState } from "react";
 
 type Invitation = {
+  resent?: boolean;
   employeeName: string;
   email: string;
   whatsappNumber: string | null;
@@ -11,7 +12,7 @@ type Invitation = {
   expiresAt: string;
 };
 
-export function InviteEmployeeButton({ employeeId, whatsappNumber, owner }: { employeeId: string; whatsappNumber: string | null; owner: boolean }) {
+export function InviteEmployeeButton({ employeeId, whatsappNumber, owner, resend = false }: { employeeId: string; whatsappNumber: string | null; owner: boolean; resend?: boolean }) {
   const [invitation, setInvitation] = useState<Invitation | null>(null);
   const [message, setMessage] = useState("");
   const [role, setRole] = useState("STAFF");
@@ -33,7 +34,7 @@ export function InviteEmployeeButton({ employeeId, whatsappNumber, owner }: { em
       const result = await response.json().catch(() => null);
       if (!response.ok) throw new Error(result?.error?.message ?? "Unable to create invitation.");
       setInvitation(result.data);
-      setMessage("Invitation created. Copy the template and send it manually in WhatsApp.");
+      setMessage(result.data.resent ? "New invitation link created. Copy the template and send it manually in WhatsApp; the previous link is no longer valid." : "Invitation created. Copy the template and send it manually in WhatsApp.");
     } catch (cause) {
       setError(true);
       setMessage(cause instanceof Error ? cause.message : "Could not reach the server. The invitation was not created.");
@@ -65,7 +66,7 @@ export function InviteEmployeeButton({ employeeId, whatsappNumber, owner }: { em
   const roles = ["STAFF", "INTERN", "TEAM_LEAD", "HR", "DEPARTMENT_HEAD", ...(owner ? ["OWNER"] : [])];
   return <div className="flex flex-wrap items-center gap-2">
     {owner && <select aria-label="Invite role" disabled={busy || Boolean(invitation)} value={role} onChange={event => setRole(event.target.value)} className="h-9 rounded-lg border border-slate-200 bg-white px-2 text-[10px]">{roles.map(value => <option key={value} value={value}>{value.replaceAll("_", " ")}</option>)}</select>}
-    <button type="button" disabled={busy || Boolean(invitation)} onClick={createInvitation} className="rounded-lg bg-[#f46327] px-3 py-2 text-[10px] font-semibold text-white disabled:opacity-50">{busy ? "Creating link…" : "Create WhatsApp invitation"}</button>
+    <button type="button" disabled={busy || Boolean(invitation)} onClick={createInvitation} className="rounded-lg bg-[#f46327] px-3 py-2 text-[10px] font-semibold text-white disabled:opacity-50">{busy ? "Creating link…" : resend ? "Resend WhatsApp invitation" : "Create WhatsApp invitation"}</button>
     {invitation && whatsappTemplate && <div className="basis-full max-w-xl rounded-xl border border-emerald-200 bg-emerald-50 p-4">
       <p className="text-xs font-semibold text-emerald-900">Invitation link created</p>
       <p className="mt-1 text-[10px] text-emerald-800">This link can activate the account. Share it only with the intended employee. It is shown here until you leave or refresh this page.</p>
