@@ -58,7 +58,7 @@ jobs:
         run: npx prisma migrate deploy
 
       - name: Verify migration status and schema sync
-        run: npx prisma migrate status --exit-code
+        run: npx prisma migrate status
 
       - name: Type-check web and API
         run: |
