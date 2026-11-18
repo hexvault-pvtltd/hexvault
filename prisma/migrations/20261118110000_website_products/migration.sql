@@ -1,0 +1,25 @@
+CREATE TABLE "WebsiteProduct" (
+  "id" UUID NOT NULL,
+  "name" TEXT NOT NULL,
+  "title" TEXT NOT NULL,
+  "description" TEXT NOT NULL,
+  "detail" TEXT NOT NULL,
+  "imageUrl" TEXT,
+  "imageAlt" TEXT,
+  "logoUrl" TEXT,
+  "price" DECIMAL(12,2),
+  "currency" TEXT NOT NULL DEFAULT 'INR',
+  "priceSuffix" TEXT,
+  "features" JSONB NOT NULL DEFAULT '[]',
+  "ctaLabel" TEXT NOT NULL DEFAULT 'Learn more',
+  "ctaUrl" TEXT,
+  "published" BOOLEAN NOT NULL DEFAULT false,
+  "sortOrder" INTEGER NOT NULL DEFAULT 0,
+  "createdBy" TEXT NOT NULL,
+  "updatedBy" TEXT NOT NULL,
+  "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  "updatedAt" TIMESTAMP(3) NOT NULL,
+  CONSTRAINT "WebsiteProduct_pkey" PRIMARY KEY ("id"),
+  CONSTRAINT "WebsiteProduct_price_nonnegative" CHECK ("price" IS NULL OR "price" >= 0)
+);
+CREATE INDEX "WebsiteProduct_published_sortOrder_createdAt_idx" ON "WebsiteProduct"("published", "sortOrder", "createdAt");

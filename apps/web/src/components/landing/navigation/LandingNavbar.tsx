@@ -11,9 +11,10 @@ function NavigationLinks({ onInfo }: { onInfo: OpenLandingInfo }) {
   return (
     <>
       <NavigationDropdown label="Products">
+        <Link href="/products"><strong>Explore our products</strong><span>Tools and platforms built for scale.</span></Link>
         {landingProducts.length ? landingProducts.map(product => (
           <Link href={product.href} key={product.name}><strong>{product.name}</strong><span>{product.description}</span></Link>
-        )) : <p>Product information coming soon.</p>}
+        )) : null}
       </NavigationDropdown>
       <button onClick={() => onInfo("pricing")}>Pricing</button>
       <NavigationDropdown label="Resources">
