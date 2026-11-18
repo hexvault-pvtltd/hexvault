@@ -3,9 +3,10 @@
 import { useEffect, useMemo, useRef } from "react";
 import { useParticlePointer } from "@/hooks/useParticlePointer";
 import { defaultParticleConfig, MAX_RIPPLES, resolveParticleConfig, RIPPLE_DURATION, type ParticleConfig } from "./particleConfig";
+import { createParticleRenderer } from "./particleRenderer";
 import { createParticleField, projectParticle, stepParticle, type Ripple } from "./particlePhysics";
 
-const COLORS = ["#A8320C", "#F46327", "#FF6A2B"];
+const COLORS = ["#E14C19", "#FF6A2B", "#FF8A45"];
 
 export default function ParticleCanvas({ config = defaultParticleConfig }: { config?: Partial<ParticleConfig> }) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -21,15 +22,31 @@ export default function ParticleCanvas({ config = defaultParticleConfig }: { con
 
   useEffect(() => {
     const canvas = canvasRef.current;
-    const context = canvas?.getContext("2d", { alpha: false });
-    if (!canvas || !context) return;
+    if (!canvas) return;
+    // A separate surface lets Canvas 2D take over after a context loss.
+    const gpuCanvas = document.createElement("canvas");
+    gpuCanvas.className = canvas.className;
+    gpuCanvas.style.cssText = "position:absolute;inset:0;background:radial-gradient(ellipse at 8% 63%,#100603 0%,transparent 42%),radial-gradient(ellipse at 90% 62%,#100603,transparent 40%),#030303";
+    const gpu = createParticleRenderer(gpuCanvas);
+    if (gpu) canvas.after(gpuCanvas);
+    let gpuActive = Boolean(gpu);
+    const context = canvas.getContext("2d", { alpha: false });
+    if (!context) { gpu?.dispose(); gpuCanvas.remove(); return; }
     const motion = window.matchMedia("(prefers-reduced-motion: reduce)");
     const hardware = navigator as Navigator & { deviceMemory?: number };
     const lowPower = (hardware.deviceMemory ?? 8) <= 4 || (navigator.hardwareConcurrency || 8) <= 4;
     let width = 0;
     let height = 0;
     let field = createParticleField(0);
+    let drawX = new Float32Array(0);
+    let drawY = new Float32Array(0);
+    let drawSize = new Float32Array(0);
+    let drawNext = new Int32Array(0);
+    const drawHeads = new Int32Array(COLORS.length * 16);
     let visible = true;
+    const atmosphere = document.createElement("canvas");
+    const sky = atmosphere.getContext("2d", { alpha: false })!;
+    let sampleOrder = new Uint32Array(0);
     let frame = 0;
     let previous = 0;
     let time = 0;
@@ -72,43 +89,69 @@ export default function ParticleCanvas({ config = defaultParticleConfig }: { con
         if (ripples[i].age >= RIPPLE_DURATION) ripples.splice(i, 1);
       }
       context.globalAlpha = 1;
-      context.fillStyle = "#050505";
-      context.fillRect(0, 0, width, height);
+      if (!gpuActive) context.drawImage(atmosphere, 0, 0, width, height);
       state.glow += ((state.active && state.touch ? 1 : 0) - state.glow) * (1 - Math.exp(-dt * 9));
       if (state.glow > 0.01 && !motion.matches) {
-        context.globalAlpha = state.glow * 0.16;
-        context.drawImage(sprites[1], state.x - 48, state.y - 48, 96, 96);
+        if (gpuActive) gpu!.point(state.x, state.y, 70, state.glow * 0.06, 1);
+        else {
+          context.globalAlpha = state.glow * 0.16;
+          context.drawImage(sprites[1], state.x - 48, state.y - 48, 96, 96);
+        }
       }
       const count = Math.floor(field.x.length * budget);
+      drawHeads.fill(-1);
       for (let i = 0; i < count; i++) {
-        const index = Math.floor(i / budget);
+        const index = sampleOrder[i];
         projectParticle(field, index, time, width, height, settings, projected);
         const x = projected[0];
         const y = projected[1];
-        if (!motion.matches) stepParticle(field, index, x, y, time, dt, state, ripples, settings);
+        if (!motion.matches && (ripples.length || state.active || field.offsetX[index] || field.offsetY[index])) {
+          stepParticle(field, index, x, y, time, dt, state, ripples, settings);
+        }
         const px = x + field.offsetX[index];
         const py = y + field.offsetY[index];
         if (px < -10 || px > width + 10 || py < -10 || py > height + 10) continue;
-        const depth = projected[2];
-        const shimmer = 0.8 + Math.sin(time * 0.65 + field.phase[index]) * 0.2;
-        const edgeFade = Math.min(1, Math.max(0, (height * 1.02 - py) / (height * 0.23)));
-        const brightness = Math.min(1, 0.34 + depth * 0.4 + Math.max(0, projected[3]) * 1.6);
-        context.globalAlpha = settings.particleOpacity * brightness * shimmer * edgeFade;
-        const size = settings.particleSize * field.size[index] * Math.min(1.05, 0.48 + depth * 0.45);
-        const color = brightness > 0.75 ? 2 : brightness > 0.44 ? 1 : 0;
-        if (settings.glowIntensity > 0 && brightness > 0.47) {
+        const shimmer = 0.91 + Math.sin(time * 0.5 + field.phase[index]) * 0.09;
+        const viewportFade = Math.min(1, Math.max(0, (height * 0.955 - py) / (height * 0.12)));
+        const opacity = Math.min(1, settings.particleOpacity * field.light[index] * shimmer * viewportFade);
+        if (opacity < 0.015) continue;
+        const size = settings.particleSize * field.size[index];
+        const color = field.tint[index];
+        if (gpuActive) {
+          gpu!.point(px, py, size * 1.38, opacity, color);
+          continue;
+        }
+        if (settings.glowIntensity > 0 && color > 0 && field.phase[index] > (color === 2 ? 5.95 : 6.26)) {
+          context.globalAlpha = opacity * settings.glowIntensity;
           const extent = size * (2 + settings.glowIntensity * 3);
           context.drawImage(sprites[color], px - extent / 2, py - extent / 2, extent, extent);
         }
-        context.fillStyle = COLORS[color];
-        context.fillRect(px, py, size, size);
+        const bucket = color * 16 + Math.min(15, Math.floor(opacity * 16));
+        drawX[index] = px;
+        drawY[index] = py;
+        drawSize[index] = size;
+        drawNext[index] = drawHeads[bucket];
+        drawHeads[bucket] = index;
+      }
+      if (gpuActive) gpu!.flush();
+      // Shared paint state lets Canvas rasterize each group in one operation.
+      for (let bucket = 0; bucket < drawHeads.length; bucket++) {
+        if (drawHeads[bucket] === -1) continue;
+        context.beginPath();
+        for (let index = drawHeads[bucket]; index !== -1; index = drawNext[index]) {
+          const size = drawSize[index];
+          context.rect(drawX[index], drawY[index], size * 0.85, size * 0.85);
+        }
+        context.fillStyle = COLORS[Math.floor(bucket / 16)];
+        context.globalAlpha = ((bucket % 16) + 0.5) / 16;
+        context.fill();
       }
       if (!motion.matches && visible && !document.hidden) {
         // Sustained slow delivery reduces fill work without rebuilding arrays.
         samples++;
         if (elapsed > 0.024) slowFrames++;
-        if (samples >= 120) {
-          if (slowFrames > 72) budget = Math.max(0.35, budget * 0.8);
+        if (samples >= 45) {
+          if (slowFrames > 27) budget = Math.max(0.35, budget * 0.8);
           slowFrames = samples = 0;
         }
         frame = requestAnimationFrame(render);
@@ -128,8 +171,43 @@ export default function ParticleCanvas({ config = defaultParticleConfig }: { con
       canvas.width = Math.max(1, Math.round(width * ratio));
       canvas.height = Math.max(1, Math.round(height * ratio));
       context.setTransform(ratio, 0, 0, ratio, 0, 0);
-      const density = Math.min(1, width * height / 1250000) * (width < 700 ? 0.65 : 1) * (lowPower ? 0.65 : 1);
-      field = createParticleField(Math.floor(settings.particleCount * density));
+      const pixels = width * height;
+      const density = Math.min(width < 600 ? 0.15 : width < 1024 ? 0.32 : 1,
+        Math.max(0.075, pixels / 1800000)) * (lowPower ? 0.68 : 1);
+      field = createParticleField(Math.floor(settings.particleCount * density * (gpuActive ? 1 : 0.6)), width / Math.max(1, height));
+      if (gpuActive) {
+        gpuCanvas.width = canvas.width;
+        gpuCanvas.height = canvas.height;
+        gpu!.resize(field.x.length, width, height, ratio, settings.glowIntensity);
+      }
+      // Stable shuffled prefixes preserve the active particles when the budget drops.
+      sampleOrder = Uint32Array.from(field.x.keys());
+      let seed = 1937;
+      for (let i = sampleOrder.length - 1; i > 0; i--) {
+        seed = (Math.imul(seed, 1664525) + 1013904223) >>> 0;
+        const j = Math.floor((seed / 4294967296) * (i + 1));
+        const swap = sampleOrder[i];
+        sampleOrder[i] = sampleOrder[j];
+        sampleOrder[j] = swap;
+      }
+      atmosphere.width = Math.max(1, Math.round(width / 4));
+      atmosphere.height = Math.max(1, Math.round(height / 4));
+      sky.setTransform(atmosphere.width / width, 0, 0, atmosphere.height / height, 0, 0);
+      sky.fillStyle = "#030303";
+      sky.fillRect(0, 0, width, height);
+      for (const [x, y] of [[0.08, 0.64], [0.90, 0.6]]) {
+        const glow = sky.createRadialGradient(width * x, height * y, 0, width * x, height * y, Math.min(width * 0.34, height * 0.38));
+        glow.addColorStop(0, "rgba(169,43,11,0.066)");
+        glow.addColorStop(1, "rgba(169,43,11,0)");
+        sky.fillStyle = glow;
+        sky.fillRect(0, 0, width, height);
+      }
+      budget = 1;
+      samples = slowFrames = 0;
+      drawX = new Float32Array(field.x.length);
+      drawY = new Float32Array(field.x.length);
+      drawSize = new Float32Array(field.x.length);
+      drawNext = new Int32Array(field.x.length);
       ripples.length = 0;
       schedule();
     };
@@ -146,6 +224,12 @@ export default function ParticleCanvas({ config = defaultParticleConfig }: { con
       visible = entries[0].isIntersecting;
       schedule();
     });
+    const contextLost = () => {
+      gpuActive = false;
+      gpuCanvas.remove();
+      resize();
+    };
+    gpuCanvas.addEventListener("webglcontextlost", contextLost);
     resizeObserver.observe(canvas);
     intersectionObserver.observe(canvas);
     window.addEventListener("resize", resize, { passive: true });
@@ -154,6 +238,9 @@ export default function ParticleCanvas({ config = defaultParticleConfig }: { con
     resize();
     return () => {
       cancelAnimationFrame(frame);
+      gpuCanvas.removeEventListener("webglcontextlost", contextLost);
+      gpu?.dispose();
+      gpuCanvas.remove();
       resizeObserver.disconnect();
       intersectionObserver.disconnect();
       window.removeEventListener("resize", resize);

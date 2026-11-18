@@ -1,0 +1,31 @@
+.hv-landing-hero {
+  position: relative;
+  isolation: isolate;
+  overflow: clip;
+  background: #050505;
+}
+
+.hv-brand-typography {
+  position: absolute;
+  z-index: 1;
+  top: 18.7svh;
+  inset-inline: 2.1%;
+  aspect-ratio: 4.25;
+  pointer-events: none;
+  user-select: none;
+  contain: layout;
+}
+
+.hv-brand-typography canvas {
+  position: absolute;
+  inset: -4vw -2vw;
+  width: calc(100% + 4vw);
+  height: calc(100% + 8vw);
+}
+
+@media (min-width: 1920px) {
+  .hv-brand-typography { top: 17svh; }
+}
+@media (max-width: 767px) {
+  .hv-brand-typography { top: 145px; inset-inline: 2%; }
+}

@@ -14,10 +14,10 @@ export interface ParticleConfig {
 }
 
 export const defaultParticleConfig: Readonly<ParticleConfig> = {
-  particleCount: 22000,
+  particleCount: 84000,
   particleSize: 1,
   particleOpacity: 0.92,
-  waveSpeed: 0.22,
+  waveSpeed: 0.16,
   waveAmplitude: 1,
   attractionRadius: 65,
   attractionStrength: 0.58,
@@ -38,7 +38,7 @@ export function resolveParticleConfig(overrides: Partial<ParticleConfig>): Parti
     if (value !== undefined && Number.isFinite(value)) config[key] = Math.max(0, value);
   }
   config.attractionRadius = Math.min(100, Math.max(30, config.attractionRadius));
-  config.particleCount = Math.min(50000, Math.floor(config.particleCount));
+  config.particleCount = Math.min(100000, Math.floor(config.particleCount));
   config.particleOpacity = Math.min(1, config.particleOpacity);
   return config;
 }
