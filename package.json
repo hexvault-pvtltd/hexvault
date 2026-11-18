@@ -18,7 +18,8 @@
         "start:api": "npm run start --workspace @hexvault/api",
         "lint": "eslint apps/web/src apps/api/src packages/core/src",
         "db:generate": "prisma generate",
-        "db:migrate": "prisma migrate deploy"
+        "db:migrate": "prisma migrate deploy",
+        "seed:owner": "node scripts/seed-owner.mjs"
     },
     "dependencies": {
         "@aws-sdk/client-s3": "^3.1169.0",
