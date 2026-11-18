@@ -7,9 +7,9 @@ import "./footer.css";
 type Entry = { label: string; href?: string; info?: LandingInfoKey };
 const groups: { title: string; entries: Entry[] }[] = [
   { title: "Services", entries: ["Web Development", "Mobile Development", "Cloud Engineering", "DevOps", "AI & Automation", "Product Engineering"].map(label => ({ label, href: "/contact#project-inquiry" })) },
-  { title: "Company", entries: [{ label: "About Us", info: "about" }, { label: "Our Process", href: "/contact#next-steps" }, { label: "Case Studies" }, { label: "Careers", href: "/careers" }, { label: "Blog" }, { label: "Contact", href: "/contact" }] },
-  { title: "Resources", entries: [{ label: "Documentation" }, { label: "Help Center", info: "support" }, { label: "Guides" }, { label: "API Reference" }, { label: "Status" }, { label: "Security", href: "#footer-security" }] },
-  { title: "Legal", entries: [{ label: "Privacy Policy", info: "privacy" }, { label: "Terms of Service", info: "terms" }, { label: "Cookie Policy" }, { label: "Acceptable Use" }, { label: "Data Processing" }, { label: "SLA" }] },
+  { title: "Company", entries: [{ label: "About Us", info: "aboutUs" }, { label: "Our Process", href: "/contact#next-steps" }, { label: "Case Studies", info: "caseStudies" }, { label: "Careers", href: "/careers" }, { label: "Blog", info: "blog" }, { label: "Contact", href: "/contact" }] },
+  { title: "Resources", entries: [{ label: "Documentation", info: "docs" }, { label: "Help Center", info: "support" }, { label: "Guides", info: "guides" }, { label: "API Reference", info: "api" }, { label: "Status", info: "status" }, { label: "Security", href: "#footer-security" }] },
+  { title: "Legal", entries: [{ label: "Privacy Policy", info: "privacy" }, { label: "Terms of Service", info: "terms" }, { label: "Cookie Policy", info: "cookies" }, { label: "Acceptable Use", info: "acceptable" }, { label: "Data Processing", info: "dpa" }, { label: "SLA", info: "sla" }] },
 ];
 
 function SocialMarks() {

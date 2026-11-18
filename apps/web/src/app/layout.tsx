@@ -1,4 +1,4 @@
-import type { Metadata } from "next";
-import "./globals.css";
-export const metadata: Metadata = { title: "HEXVAULT | Multiplayer mode for AI development", description: "Collaborate, build, and scale AI-powered solutions together in real time." };
-export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) { return <html lang="en"><body>{children}</body></html>; }
+import { redirect } from "next/navigation";
+import { currentUser } from "@core/lib/auth";
+import { Workspace } from "@/components/workspace";
+export default async function AppLayout({children}:{children:React.ReactNode}) { const user=await currentUser(); if(!user) redirect("/login"); return <Workspace name={user.employee?.fullName ?? user.email} role={user.roles[0] ?? "STAFF"} roles={user.roles}>{children}</Workspace>; }

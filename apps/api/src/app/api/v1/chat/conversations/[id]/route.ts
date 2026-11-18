@@ -1,27 +1,99 @@
 import { z } from "zod";
 import { currentUser } from "@core/lib/auth";
 import { db } from "@core/lib/db";
-import { fail, ok } from "@core/lib/http";
 import { NextRequest, NextResponse } from "next/server";
 
 type Context = { params: Promise<{ id: string }> };
-const schema = z.object({ name: z.string().trim().min(2).max(80).optional(), description: z.string().trim().max(500).nullable().optional() }).strict().refine(value => value.name !== undefined || value.description !== undefined, "At least one group field is required.");
+const cursorSchema = z.object({ afterAt: z.iso.datetime().optional(), afterId: z.string().uuid().optional() }).strict().refine(value => Boolean(value.afterAt) === Boolean(value.afterId), "Both stream cursor fields are required together.");
+const encoder = new TextEncoder();
 
-export async function PATCH(request: NextRequest, { params }: Context) {
+export const runtime = "nodejs";
+export const dynamic = "force-dynamic";
+
+export async function GET(request: NextRequest, { params }: Context) {
   const actor = await currentUser();
-  if (!actor) return NextResponse.json({ error: { code: "UNAUTHENTICATED", message: "Sign in to manage group details." } }, { status: 401 });
+  if (!actor) return NextResponse.json({ error: { code: "UNAUTHENTICATED", message: "Sign in to use chat." } }, { status: 401 });
+  const { id: conversationId } = await params;
   try {
-    const { id } = await params;
-    const input = schema.parse(await request.json());
-    const group = await db.chatConversation.findFirst({ where: { id, kind: "GROUP", members: { some: { userId: actor.id, leftAt: null } } }, select: { id: true, createdBy: true } });
-    if (!group) return NextResponse.json({ error: { code: "NOT_FOUND", message: "Group not found." } }, { status: 404 });
-    if (group.createdBy !== actor.id && !actor.roles.some(role => ["OWNER", "HR"].includes(role))) return NextResponse.json({ error: { code: "FORBIDDEN", message: "Only the group creator, HR, or Owner can edit group details." } }, { status: 403 });
-    const updated = await db.$transaction(async tx => {
-      const result = await tx.chatConversation.update({ where: { id }, data: { ...(input.name !== undefined ? { name: input.name } : {}), ...(input.description !== undefined ? { description: input.description || null } : {}) }, select: { id: true, name: true, description: true } });
-      await tx.chatEvent.create({ data: { conversationId: id, actorId: actor.id, type: "GROUP_UPDATED", payload: result } });
-      await tx.auditLog.create({ data: { actorId: actor.id, action: "chat.group_updated", resourceType: "chat_conversation", resourceId: id } });
-      return result;
+    const query = cursorSchema.parse(Object.fromEntries(request.nextUrl.searchParams));
+    const membership = await db.chatMembership.findFirst({ where: { conversationId, userId: actor.id, leftAt: null }, select: { id: true } });
+    if (!membership) return NextResponse.json({ error: { code: "NOT_FOUND", message: "Chat conversation not found." } }, { status: 404 });
+    let cursorAt = query.afterAt ? new Date(query.afterAt) : new Date(0);
+    let cursorId = query.afterId ?? "00000000-0000-0000-0000-000000000000";
+    let eventAt = query.afterAt ? new Date(query.afterAt) : new Date();
+    let eventId = "00000000-0000-0000-0000-000000000000";
+    const stream = new ReadableStream<Uint8Array>({
+      start(controller) {
+        let closed = false;
+        let timer: ReturnType<typeof setTimeout> | undefined;
+        let lastHeartbeat = Date.now();
+        let lastSessionCheck = Date.now();
+        const close = () => {
+          if (closed) return;
+          closed = true;
+          if (timer) clearTimeout(timer);
+          request.signal.removeEventListener("abort", close);
+          try { controller.close(); } catch { /* The browser may have already disconnected. */ }
+        };
+        request.signal.addEventListener("abort", close, { once: true });
+        const send = (event: string, data: unknown) => controller.enqueue(encoder.encode(`event: ${event}\ndata: ${JSON.stringify(data)}\n\n`));
+        void (async () => {
+          try {
+            controller.enqueue(encoder.encode(": connected\n\n"));
+            while (!closed && !request.signal.aborted) {
+              if (Date.now() - lastSessionCheck > 15_000) {
+                lastSessionCheck = Date.now();
+                const [session, activeMembership] = await Promise.all([
+                  db.session.findUnique({ where: { id: actor.sessionId }, select: { revokedAt: true, expiresAt: true, user: { select: { status: true, employee: { select: { lifecycleStatus: true } } } } } }),
+                  db.chatMembership.findFirst({ where: { conversationId, userId: actor.id, leftAt: null }, select: { id: true } }),
+                ]);
+                if (!activeMembership || !session || session.revokedAt || session.expiresAt <= new Date() || session.user.status !== "ACTIVE" || (session.user.employee && ["SUSPENDED", "EXITED"].includes(session.user.employee.lifecycleStatus))) {
+                  send("auth-expired", { message: "Your session ended. Sign in again to continue chatting." });
+                  close();
+                  break;
+                }
+              }
+              const messages = await db.chatMessage.findMany({
+                where: { conversationId, OR: [{ createdAt: { gt: cursorAt } }, { createdAt: cursorAt, id: { gt: cursorId } }] },
+                include: { sender: { select: { id: true, email: true, employee: { select: { fullName: true } } } } },
+                orderBy: [{ createdAt: "asc" }, { id: "asc" }],
+                take: 100,
+              });
+              for (const message of messages) {
+                if (closed) break;
+                send("message", { id: message.id, clientMessageId: message.clientMessageId, senderId: message.senderId, senderName: message.sender.employee?.fullName ?? message.sender.email, body: message.body, createdAt: message.createdAt, mine: message.senderId === actor.id });
+                cursorAt = message.createdAt;
+                cursorId = message.id;
+              }
+              const events = await db.chatEvent.findMany({
+                where: { conversationId, OR: [{ createdAt: { gt: eventAt } }, { createdAt: eventAt, id: { gt: eventId } }] },
+                orderBy: [{ createdAt: "asc" }, { id: "asc" }], take: 100,
+              });
+              for (const event of events) {
+                if (closed) break;
+                send("chat-event", { id: event.id, type: event.type, payload: event.payload, createdAt: event.createdAt, actorId: event.actorId });
+                eventAt = event.createdAt;
+                eventId = event.id;
+              }
+              if (closed) break;
+              if (Date.now() - lastHeartbeat > 20_000) { controller.enqueue(encoder.encode(": keepalive\n\n")); lastHeartbeat = Date.now(); }
+              await new Promise<void>(resolve => { timer = setTimeout(resolve, 1200); });
+            }
+          } catch (error) {
+            if (!closed) {
+              console.error("chat_stream_failed", error instanceof Error ? error.name : "unknown");
+              try { send("chat-error", { message: "Live connection interrupted. Reconnecting…" }); } catch { /* The client may have disconnected. */ }
+              close();
+            }
+          }
+        })();
+      },
+      cancel() { /* Request abort closes the loop and releases its timer. */ },
     });
-    return ok({ item: updated });
-  } catch (error) { return fail(error); }
+    return new Response(stream, { headers: { "Content-Type": "text/event-stream; charset=utf-8", "Cache-Control": "no-cache, no-transform", Connection: "keep-alive", "X-Accel-Buffering": "no" } });
+  } catch (error) {
+    if (error instanceof z.ZodError) return NextResponse.json({ error: { code: "VALIDATION_ERROR", message: "The live chat cursor is invalid." } }, { status: 422 });
+    console.error("chat_stream_init_failed", error instanceof Error ? error.name : "unknown");
+    return NextResponse.json({ error: { code: "INTERNAL_ERROR", message: "The live chat stream could not be opened." } }, { status: 500 });
+  }
 }

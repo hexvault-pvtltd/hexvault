@@ -1,47 +1,9 @@
 import { z } from "zod";
 import { currentUser } from "@core/lib/auth";
 import { db } from "@core/lib/db";
+import { canTransitionTask } from "@core/lib/domain";
 import { fail, ok } from "@core/lib/http";
-import { canManageTask, canReadTask } from "@core/features/tasks/permissions";
-import { NextResponse } from "next/server";
-
-const schema = z.object({
-  title: z.string().trim().min(2).max(180).optional(),
-  description: z.string().max(4000).nullable().optional(),
-  priority: z.enum(["LOW", "MEDIUM", "HIGH", "URGENT"]).optional(),
-  dueAt: z.coerce.date().nullable().optional(),
-  estimatedMinutes: z.number().int().min(1).max(100000).nullable().optional(),
-}).strict().refine(value => Object.keys(value).length > 0, "Provide at least one task field.");
-
-const include = {
-  project: { include: { department: { select: { id: true, name: true, headEmployeeId: true } } } },
-  assignees: { where: { unassignedAt: null }, include: { employee: { select: { id: true, fullName: true, employeeCode: true } } } },
-} as const;
-
-export async function GET(_request: Request, { params }: { params: Promise<{ id: string }> }) {
-  const actor = await currentUser();
-  if (!actor) return NextResponse.json({ error: { code: "UNAUTHENTICATED", message: "Sign in to continue." } }, { status: 401 });
-  const { id } = await params;
-  const task = await db.task.findUnique({ where: { id }, include: { ...include, history: { orderBy: { changedAt: "desc" }, take: 50 }, comments: { orderBy: { createdAt: "asc" }, take: 100 }, reviews: { orderBy: { createdAt: "desc" }, take: 20 }, dependencies: { include: { dependsOn: { select: { id: true, title: true, status: true } } } }, dependedOnBy: { include: { task: { select: { id: true, title: true, status: true } } } } } });
-  if (!task) return NextResponse.json({ error: { code: "NOT_FOUND", message: "Task not found." } }, { status: 404 });
-  if (!await canReadTask(actor, task)) return NextResponse.json({ error: { code: "FORBIDDEN", message: "Task is outside your scope." } }, { status: 403 });
-  return ok(task);
-}
-
-export async function PATCH(request: Request, { params }: { params: Promise<{ id: string }> }) {
-  try {
-    const actor = await currentUser();
-    if (!actor) return NextResponse.json({ error: { code: "UNAUTHENTICATED", message: "Sign in to continue." } }, { status: 401 });
-    const input = schema.parse(await request.json());
-    const { id } = await params;
-    const task = await db.task.findUnique({ where: { id }, include });
-    if (!task) return NextResponse.json({ error: { code: "NOT_FOUND", message: "Task not found." } }, { status: 404 });
-    if (!await canManageTask(actor, task)) return NextResponse.json({ error: { code: "FORBIDDEN", message: "You cannot edit this task." } }, { status: 403 });
-    const updated = await db.$transaction(async tx => {
-      const result = await tx.task.update({ where: { id }, data: input });
-      await tx.auditLog.create({ data: { actorId: actor.id, action: "task.updated", resourceType: "task", resourceId: id, metadata: { fields: Object.keys(input) } } });
-      return result;
-    });
-    return ok(updated);
-  } catch (error) { return fail(error); }
-}
+import { canChangeTaskStatus } from "@core/features/tasks/permissions";
+import { NextRequest, NextResponse } from "next/server";
+const schema=z.object({status:z.enum(["BACKLOG","TODO","IN_PROGRESS","BLOCKED","IN_REVIEW","DONE","CANCELLED"]),reason:z.string().max(1000).optional()});
+export async function POST(request:NextRequest,{params}:{params:Promise<{id:string}>}){try{const actor=await currentUser();if(!actor)return NextResponse.json({error:{code:"UNAUTHENTICATED",message:"Sign in to continue."}},{status:401});const {id}=await params;const input=schema.parse(await request.json());const task=await db.task.findUnique({where:{id},include:{assignees:{where:{unassignedAt:null}},project:{select:{id:true,ownerEmployeeId:true,departmentId:true,department:{select:{headEmployeeId:true}}}}}});if(!task)return NextResponse.json({error:{code:"NOT_FOUND",message:"Task not found."}},{status:404});if(!await canChangeTaskStatus(actor,task))return NextResponse.json({error:{code:"FORBIDDEN",message:"You do not have access to update this task."}},{status:403});if(task.status===input.status)return ok(task);if(!canTransitionTask(task.status,input.status))return NextResponse.json({error:{code:"CONFLICT",message:`A task cannot move from ${task.status} to ${input.status}.`}},{status:409});const changed=await db.$transaction(async tx=>{const update=await tx.task.updateMany({where:{id,status:task.status},data:{status:input.status}});if(!update.count)return null;await tx.taskStatusHistory.create({data:{taskId:id,fromStatus:task.status,toStatus:input.status,actorId:actor.id,reason:input.reason}});await tx.auditLog.create({data:{actorId:actor.id,action:"task.status_changed",resourceType:"task",resourceId:id,metadata:{fromStatus:task.status,toStatus:input.status}}});return tx.task.findUniqueOrThrow({where:{id}});});return changed?ok(changed):NextResponse.json({error:{code:"CONFLICT",message:"The task status changed concurrently. Refresh and try again."}},{status:409});}catch(error){return fail(error);}}
