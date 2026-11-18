@@ -1,37 +1,6 @@
-"use client";
-
-import { FormEvent, useState } from "react";
-import { useRouter } from "next/navigation";
-
-export default function NewEmployee() {
-  const [error, setError] = useState("");
-  const [busy, setBusy] = useState(false);
-  const router = useRouter();
-
-  async function save(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault();
-    if (busy) return;
-    const data = Object.fromEntries(new FormData(event.currentTarget));
-    setBusy(true);
-    setError("");
-    try {
-      const response = await fetch("/api/v1/employees", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(data) });
-      const body = await response.json().catch(() => null);
-      if (!response.ok) {
-        setError(body?.error?.message ?? "Unable to save employee.");
-        return;
-      }
-      if (typeof body?.data?.id !== "string") {
-        setError("The employee was saved, but the response did not include its profile link. Refresh the directory to find the employee.");
-        return;
-      }
-      router.push(`/workforce/${body.data.id}`);
-    } catch {
-      setError("Could not reach the server. The employee record was not saved.");
-    } finally {
-      setBusy(false);
-    }
-  }
-
-  return <div className="max-w-2xl"><p className="text-xs text-slate-400">People / Workforce / New</p><h1 className="mt-2 text-2xl font-semibold">Add employee record</h1><p className="mt-1 text-sm text-slate-500">After saving, open the employee profile to create an invitation link for manual WhatsApp sharing.</p><form onSubmit={save} className="mt-6 space-y-4 rounded-xl border border-slate-200 bg-white p-6"><label className="block text-xs font-semibold">Full name<input required name="fullName" minLength={2} className="mt-2 block h-10 w-full rounded-lg border border-slate-200 px-3 text-sm"/></label><div className="grid gap-4 sm:grid-cols-2"><label className="block text-xs font-semibold">Employee code<input required name="employeeCode" minLength={2} className="mt-2 block h-10 w-full rounded-lg border border-slate-200 px-3 text-sm"/></label><label className="block text-xs font-semibold">Work email<input required type="email" name="workEmail" className="mt-2 block h-10 w-full rounded-lg border border-slate-200 px-3 text-sm"/></label></div><div className="grid gap-4 sm:grid-cols-2"><label className="block text-xs font-semibold">WhatsApp number<input type="tel" name="phone" maxLength={40} placeholder="+91 98765 43210" className="mt-2 block h-10 w-full rounded-lg border border-slate-200 px-3 text-sm"/></label><label className="block text-xs font-semibold">Job title<input name="title" className="mt-2 block h-10 w-full rounded-lg border border-slate-200 px-3 text-sm"/></label></div>{error && <p role="alert" className="text-xs text-rose-600">{error}</p>}<button disabled={busy} className="rounded-lg bg-[#f46327] px-4 py-2.5 text-xs font-semibold text-white disabled:opacity-50">{busy ? "Saving…" : "Save employee"}</button></form></div>;
-}
+import Link from "next/link";
+import { currentUser } from "@core/lib/auth";
+import { db } from "@core/lib/db";
+import { Users, UserPlus } from "lucide-react";
+import { visibleEmployeeIds } from "@core/lib/scope";
+export default async function Workforce(){const user=await currentUser();const visible=user?await visibleEmployeeIds(user):[];const employees=await db.employee.findMany({where:visible===null?{}:{id:{in:visible}},select:{id:true,employeeCode:true,fullName:true,workEmail:true,title:true,lifecycleStatus:true,department:{select:{name:true}}},orderBy:{fullName:"asc"},take:100});return <><div className="mb-7 flex flex-wrap items-end justify-between gap-4"><div><p className="text-xs text-slate-400">People / Directory</p><h1 className="mt-2 text-2xl font-semibold">Workforce</h1><p className="mt-1 text-sm text-slate-500">Employee profiles and current employment status.</p></div>{user?.roles.some(r=>["OWNER","HR"].includes(r))&&<Link href="/workforce/new" className="flex items-center gap-2 rounded-lg bg-[#f46327] px-4 py-2.5 text-xs font-semibold text-white"><UserPlus size={15}/>Add employee</Link>}</div><div className="mb-5 flex items-center justify-between rounded-xl border border-slate-200 bg-white p-4"><div className="flex items-center gap-3"><span className="grid h-9 w-9 place-items-center rounded-lg bg-violet-50 text-violet-600"><Users size={17}/></span><div><p className="text-xs font-semibold">{employees.length} people</p><p className="text-[11px] text-slate-400">Visible within your access scope</p></div></div></div><div className="overflow-hidden rounded-xl border border-slate-200 bg-white"><div className="grid grid-cols-[1.5fr_1.2fr_1fr_.8fr] gap-4 border-b border-slate-100 bg-slate-50/70 px-5 py-3 text-[10px] font-semibold uppercase tracking-wider text-slate-400"><span>Employee</span><span>Department</span><span>Role / Title</span><span>Status</span></div>{employees.length?employees.map(e=><Link key={e.id} href={`/workforce/${e.id}`} className="grid grid-cols-[1.5fr_1.2fr_1fr_.8fr] items-center gap-4 border-b border-slate-50 px-5 py-4 last:border-0 hover:bg-slate-50/60"><span className="flex min-w-0 items-center gap-3"><span className="grid h-9 w-9 shrink-0 place-items-center rounded-full bg-[#fff1e9] text-xs font-bold text-[#c74410]">{e.fullName.split(" ").map(a=>a[0]).join("").slice(0,2)}</span><span className="min-w-0"><b className="block truncate text-xs">{e.fullName}</b><small className="text-[10px] text-slate-400">{e.employeeCode} · {e.workEmail}</small></span></span><span className="text-xs text-slate-600">{e.department?.name??"Unassigned"}</span><span className="text-xs text-slate-600">{e.title??"—"}</span><span><i className={`rounded-full px-2 py-1 text-[10px] not-italic ${e.lifecycleStatus==="ACTIVE"?"bg-emerald-50 text-emerald-700":"bg-slate-100 text-slate-500"}`}>{e.lifecycleStatus.replaceAll("_"," ")}</i></span></Link>):<p className="px-5 py-14 text-center text-xs text-slate-400">No employee records are available.</p>}</div></>}

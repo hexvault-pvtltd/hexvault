@@ -1,42 +1,44 @@
+import { z } from "zod";
 import { currentUser } from "@core/lib/auth";
-import { cdnFolderAccess } from "@core/features/cdn/permissions";
 import { db } from "@core/lib/db";
-import { MAX_CDN_UPLOAD_BYTES, readPrivateObject } from "@core/lib/storage";
-import { NextResponse } from "next/server";
+import { canManageCdnFolderFiles } from "@core/features/cdn/permissions";
+import { deletePrivateObject } from "@core/lib/storage";
+import { fail, ok } from "@core/lib/http";
+import { NextRequest, NextResponse } from "next/server";
 
 type Context = { params: Promise<{ id: string }> };
-const inlineImageTypes = new Set(["image/jpeg", "image/png", "image/webp", "image/gif", "image/avif"]);
+const updateSchema = z.object({ isPublic: z.boolean() }).strict();
 
-export async function GET(_request: Request, { params }: Context) {
+export async function PATCH(request: NextRequest, { params }: Context) {
+  const actor = await currentUser();
+  if (!actor) return NextResponse.json({ error: { code: "UNAUTHENTICATED", message: "Sign in to continue." } }, { status: 401 });
   try {
     const { id } = await params;
-    const asset = await db.cdnAsset.findUnique({ where: { id }, include: { file: true, folder: { select: { id: true, active: true } } } });
-    if (!asset || !asset.folder.active || asset.file.scanStatus !== "CLEAN") return NextResponse.json({ error: { code: "NOT_FOUND", message: "CDN file not found." } }, { status: 404 });
+    const input = updateSchema.parse(await request.json());
+    const asset = await db.cdnAsset.findUnique({ where: { id }, include: { file: { select: { scanStatus: true } }, folder: { select: { active: true } } } });
+    if (!asset || !asset.folder.active) return NextResponse.json({ error: { code: "NOT_FOUND", message: "CDN file not found." } }, { status: 404 });
+    if (!await canManageCdnFolderFiles(actor, asset.folderId)) return NextResponse.json({ error: { code: "FORBIDDEN", message: "You cannot change sharing for this CDN file." } }, { status: 403 });
+    if (input.isPublic && asset.file.scanStatus !== "CLEAN") return NextResponse.json({ error: { code: "CONFLICT", message: "Only a clean, scanned file can be made public." } }, { status: 409 });
+    const updated = await db.cdnAsset.update({ where: { id }, data: { isPublic: input.isPublic } });
+    await db.auditLog.create({ data: { actorId: actor.id, action: input.isPublic ? "cdn.file_published" : "cdn.file_unpublished", resourceType: "cdn_asset", resourceId: id } });
+    return ok({ item: updated });
+  } catch (error) { return fail(error); }
+}
 
-    if (!asset.isPublic) {
-      const actor = await currentUser();
-      if (!actor) return NextResponse.json({ error: { code: "UNAUTHENTICATED", message: "Sign in to access this file." } }, { status: 401, headers: { "Cache-Control": "private, no-store" } });
-      if (!await cdnFolderAccess(actor, asset.folderId)) return NextResponse.json({ error: { code: "FORBIDDEN", message: "You do not have access to this file." } }, { status: 403, headers: { "Cache-Control": "private, no-store" } });
-    }
-
-    const object = await readPrivateObject(asset.file.storageKey, MAX_CDN_UPLOAD_BYTES);
-    const mimeType = asset.file.mimeType.toLowerCase();
-    const inline = inlineImageTypes.has(mimeType);
-    const safeName = asset.file.originalFilename.replace(/[\r\n"\\]/g, "_").slice(0, 180) || "cdn-file";
-    const headers = new Headers({
-      "Content-Type": inline ? mimeType : "application/octet-stream",
-      "Content-Length": String(object.contentLength),
-      "Content-Disposition": `${inline ? "inline" : "attachment"}; filename="${safeName}"; filename*=UTF-8''${encodeURIComponent(safeName)}`,
-      "X-Content-Type-Options": "nosniff",
-      "Content-Security-Policy": "default-src 'none'; sandbox",
-      "Referrer-Policy": "no-referrer",
-      "Cache-Control": asset.isPublic ? "public, max-age=60, s-maxage=60, stale-while-revalidate=30" : "private, no-store",
+export async function DELETE(_request: Request, { params }: Context) {
+  const actor = await currentUser();
+  if (!actor) return NextResponse.json({ error: { code: "UNAUTHENTICATED", message: "Sign in to continue." } }, { status: 401 });
+  try {
+    const { id } = await params;
+    const asset = await db.cdnAsset.findUnique({ where: { id }, include: { file: true, folder: { select: { active: true } } } });
+    if (!asset || !asset.folder.active) return NextResponse.json({ error: { code: "NOT_FOUND", message: "CDN file not found." } }, { status: 404 });
+    if (!await canManageCdnFolderFiles(actor, asset.folderId)) return NextResponse.json({ error: { code: "FORBIDDEN", message: "You cannot delete files from this CDN folder." } }, { status: 403 });
+    await deletePrivateObject(asset.file.storageKey);
+    await db.$transaction(async tx => {
+      await tx.cdnAsset.delete({ where: { id } });
+      await tx.file.delete({ where: { id: asset.file.id } });
+      await tx.auditLog.create({ data: { actorId: actor.id, action: "cdn.file_deleted", resourceType: "cdn_asset", resourceId: id } });
     });
-    if (asset.file.checksum) headers.set("ETag", `"${asset.file.checksum}"`);
-    return new Response(object.bytes, { status: 200, headers });
-  } catch (error) {
-    if (error instanceof Error && (error.message === "NotFound" || error.message === "INVALID_OBJECT_SIZE")) return NextResponse.json({ error: { code: "NOT_FOUND", message: "CDN file not found." } }, { status: 404 });
-    console.error("cdn_content_read_failed", error instanceof Error ? error.name : "unknown");
-    return NextResponse.json({ error: { code: "INTERNAL_ERROR", message: "The CDN file could not be served." } }, { status: 500 });
-  }
+    return ok({ deleted: true });
+  } catch (error) { return fail(error); }
 }

@@ -1,1 +1,1 @@
-export { revokeSession as DELETE } from "@core/features/auth/endpoints";
+export { sessions as GET } from "@core/features/auth/endpoints";

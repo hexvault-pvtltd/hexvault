@@ -8,7 +8,7 @@ import HeroBrandTypography from "./hero/HeroBrandTypography";
 import HeroContent from "./hero/HeroContent";
 import LandingNavbar from "./navigation/LandingNavbar";
 import LandingFooter from "./footer/LandingFooter";
-import { landingInfo, type InfoEntry, type OpenLandingInfo } from "./shared/landingConfig";
+import { landingInfo, type OpenLandingInfo } from "./shared/landingConfig";
 import "@/styles/landing.css";
 
 export default function HexvaultLanding() {
@@ -20,7 +20,6 @@ export default function HexvaultLanding() {
     setInfo(key);
     dialogRef.current?.showModal();
   };
-  const entry: InfoEntry = landingInfo[info];
   return (
     <main className="hv-landing">
       <section className="hv-landing-hero">
@@ -30,20 +29,15 @@ export default function HexvaultLanding() {
         <HeroContent onInfo={onInfo} />
       </section>
       <LandingFooter onInfo={onInfo} />
-      <dialog className={"hv-info-dialog" + (entry.wide ? " hv-info-wide" : "")} ref={dialogRef} aria-labelledby="hv-dialog-title" aria-describedby="hv-dialog-description" onClose={() => {
+      <dialog className="hv-info-dialog" ref={dialogRef} aria-labelledby="hv-dialog-title" aria-describedby="hv-dialog-description" onClose={() => {
         const trigger = triggerRef.current;
         if (trigger?.matches("button, a, summary") && !trigger.closest("details:not([open])") && trigger.getClientRects().length) trigger.focus();
         else document.querySelector<HTMLElement>(window.innerWidth <= 900 ? ".hv-mobile-navigation > summary" : ".hv-home")?.focus();
       }} onClick={event => { if (event.target === event.currentTarget) dialogRef.current?.close(); }}>
         <div className="hv-dialog-content">
           <button className="hv-dialog-close" aria-label="Close" onClick={() => dialogRef.current?.close()}><X size={20} /></button>
-          <h2 id="hv-dialog-title">{entry.title}</h2>
-          <p id="hv-dialog-description">{entry.description}</p>
-          {entry.sections?.map((section, index) => <section className="hv-dialog-section" key={section.heading ?? index}>
-            {section.heading && <h3>{section.heading}</h3>}
-            <ul>{section.items.map(item => <li key={item.title}><strong>{item.title}</strong><span>{item.text}</span></li>)}</ul>
-          </section>)}
-          {entry.cta && <Link className="hv-dialog-cta" href={entry.cta.href}>{entry.cta.label}</Link>}
+          <h2 id="hv-dialog-title">{landingInfo[info].title}</h2>
+          <p id="hv-dialog-description">{landingInfo[info].description}</p>
           {info === "signup" && <Link href="/login">Team member sign in</Link>}
         </div>
       </dialog>

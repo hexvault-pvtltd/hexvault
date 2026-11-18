@@ -1,52 +1,53 @@
-import { randomBytes } from "node:crypto";
-import { hash } from "bcryptjs";
+import { z } from "zod";
 import { currentUser } from "@core/lib/auth";
-import { applicationUrl } from "@core/lib/app-url";
 import { db } from "@core/lib/db";
 import { fail, ok } from "@core/lib/http";
+import { visibleEmployeeIds } from "@core/lib/scope";
 import { NextRequest, NextResponse } from "next/server";
 
-export async function POST(_request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+const createSchema = z.object({
+  employeeCode: z.string().trim().min(2).max(32),
+  fullName: z.string().trim().min(2).max(120),
+  workEmail: z.string().email().max(254),
+  phone: z.string().trim().max(40).optional(),
+  title: z.string().trim().max(120).optional(),
+  departmentId: z.string().uuid().optional(),
+}).strict();
+
+export async function GET() {
+  const actor = await currentUser();
+  if (!actor) return NextResponse.json({ error: { code: "UNAUTHENTICATED", message: "Sign in to continue." } }, { status: 401 });
+  const visible = await visibleEmployeeIds(actor);
+  const rows = await db.employee.findMany({
+    where: visible === null ? {} : { id: { in: visible } },
+    select: { id: true, employeeCode: true, fullName: true, workEmail: true, phone: true, title: true, lifecycleStatus: true, department: { select: { id: true, name: true } }, createdAt: true },
+    orderBy: { fullName: "asc" },
+    take: 100,
+  });
+  return ok({ items: rows, total: rows.length });
+}
+
+export async function POST(request: NextRequest) {
   try {
     const actor = await currentUser();
     if (!actor) return NextResponse.json({ error: { code: "UNAUTHENTICATED", message: "Sign in to continue." } }, { status: 401 });
     if (!actor.roles.some(role => ["OWNER", "HR"].includes(role))) {
-      return NextResponse.json({ error: { code: "FORBIDDEN", message: "Only Owner or HR can update employee passwords." } }, { status: 403 });
+      return NextResponse.json({ error: { code: "FORBIDDEN", message: "You do not have access to create employees." } }, { status: 403 });
     }
 
-    const { id } = await params;
-    const employee = await db.employee.findUnique({
-      where: { id },
-      select: { id: true, fullName: true, user: { select: { id: true, email: true, status: true } } },
-    });
-    if (!employee) return NextResponse.json({ error: { code: "NOT_FOUND", message: "Employee not found." } }, { status: 404 });
-    const account = employee.user;
-    if (!account || account.status !== "ACTIVE") {
-      return NextResponse.json({ error: { code: "ACCOUNT_NOT_ACTIVE", message: "This employee does not have an active account whose password can be updated." } }, { status: 409 });
-    }
-
-    const temporaryPassword = randomBytes(24).toString("base64url");
-    const passwordHash = await hash(temporaryPassword, 12);
-    await db.$transaction(async tx => {
-      await tx.user.update({ where: { id: account.id }, data: { passwordHash } });
-      await tx.session.updateMany({ where: { userId: account.id, revokedAt: null }, data: { revokedAt: new Date() } });
-      await tx.passwordResetToken.deleteMany({ where: { userId: account.id } });
-      await tx.auditLog.create({
-        data: {
-          actorId: actor.id,
-          action: "auth.password_updated_by_admin",
-          resourceType: "user",
-          resourceId: account.id,
-        },
+    const input = createSchema.parse(await request.json());
+    const email = input.workEmail.trim().toLowerCase();
+    const employee = await db.$transaction(async tx => {
+      const person = await tx.employee.create({
+        data: { employeeCode: input.employeeCode, fullName: input.fullName, workEmail: email, phone: input.phone || null, title: input.title || null, departmentId: input.departmentId ?? null },
       });
+      await tx.employmentPeriod.create({ data: { employeeId: person.id, employmentType: "FULL_TIME", title: person.title, startDate: new Date(), status: "ACTIVE" } });
+      await tx.employeeHistory.create({ data: { employeeId: person.id, eventType: "CREATED", actorId: actor.id, newData: { employeeCode: person.employeeCode, workEmail: person.workEmail } } });
+      await tx.auditLog.create({ data: { actorId: actor.id, action: "employee.created", resourceType: "employee", resourceId: person.id } });
+      return person;
     });
 
-    return ok({
-      employeeName: employee.fullName,
-      loginEmail: account.email,
-      temporaryPassword,
-      loginUrl: applicationUrl(new URL(_request.url).origin),
-    });
+    return ok(employee, 201);
   } catch (error) {
     return fail(error);
   }
