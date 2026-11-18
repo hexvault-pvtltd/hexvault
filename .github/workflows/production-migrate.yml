@@ -42,8 +42,3 @@ jobs:
           DATABASE_URL: ${{ secrets.PRODUCTION_DATABASE_URL }}
           DIRECT_URL: ${{ secrets.PRODUCTION_DATABASE_URL }}
         run: npx prisma migrate deploy --schema prisma/schema.prisma
-      - name: Confirm migration status after deploying
-        env:
-          DATABASE_URL: ${{ secrets.PRODUCTION_DATABASE_URL }}
-          DIRECT_URL: ${{ secrets.PRODUCTION_DATABASE_URL }}
-        run: npx prisma migrate status --schema prisma/schema.prisma
