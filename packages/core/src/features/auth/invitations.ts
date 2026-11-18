@@ -2,6 +2,7 @@ import { randomBytes } from "node:crypto";
 import { hash } from "bcryptjs";
 import { z } from "zod";
 import { createSession, currentUser, hashToken, SESSION_COOKIE, sessionCookieSecure } from "@core/lib/auth";
+import { applicationUrl } from "@core/lib/app-url";
 import { db } from "@core/lib/db";
 import { fail, ok } from "@core/lib/http";
 import { NextRequest, NextResponse } from "next/server";
@@ -66,7 +67,7 @@ export async function inviteEmployee(request: NextRequest) {
       });
     });
 
-    const invitationUrl = `${process.env.APP_URL ?? new URL(request.url).origin}/accept-invitation?token=${encodeURIComponent(token)}`;
+    const invitationUrl = `${applicationUrl(new URL(request.url).origin)}/accept-invitation?token=${encodeURIComponent(token)}`;
     return ok({ invitationCreated: true, resent: Boolean(employee.user), employeeName: employee.fullName, email, whatsappNumber: employee.phone, role: input.role, invitationUrl, expiresAt }, 201);
   } catch (error) {
     return fail(error);

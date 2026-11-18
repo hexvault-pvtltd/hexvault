@@ -18,6 +18,11 @@ jobs:
     name: HEXVAULT validation
     runs-on: ubuntu-latest
     timeout-minutes: 20
+    env:
+      DATABASE_URL: postgresql://ci:ci@127.0.0.1:5432/ci
+      DIRECT_URL: postgresql://ci:ci@127.0.0.1:5432/ci
+      AUTH_SECRET: ci-only-placeholder-secret-with-at-least-32-bytes
+      NOTES_ENCRYPTION_KEY: ci-only-placeholder-notes-key-with-at-least-32-bytes
 
     steps:
       - name: Check out repository
@@ -48,5 +53,49 @@ jobs:
           npm run test --if-present
           npm run test --workspaces --if-present
 
-      - name: Build web and API services
-        run: npm run build
+  docker-build:
+    name: Docker build (${{ matrix.app }})
+    needs: validate
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix:
+        app: [web, api]
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+      - name: Build production image
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: ./Dockerfile
+          push: false
+          build-args: |
+            APP_NAME=${{ matrix.app }}
+            API_INTERNAL_HOSTPORT=hexvault-api:10000
+          cache-from: type=gha,scope=hexvault-${{ matrix.app }}
+          cache-to: type=gha,mode=max,scope=hexvault-${{ matrix.app }}
+
+  deploy-render:
+    name: Deploy verified commit to Render
+    needs: [validate, docker-build]
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    environment: production
+    concurrency:
+      group: render-production
+      cancel-in-progress: false
+    steps:
+      - name: Trigger API and web deploys
+        env:
+          API_DEPLOY_HOOK: ${{ secrets.RENDER_API_DEPLOY_HOOK_URL }}
+          WEB_DEPLOY_HOOK: ${{ secrets.RENDER_WEB_DEPLOY_HOOK_URL }}
+          COMMIT_SHA: ${{ github.sha }}
+        run: |
+          test -n "$API_DEPLOY_HOOK" || { echo "RENDER_API_DEPLOY_HOOK_URL is not configured"; exit 1; }
+          test -n "$WEB_DEPLOY_HOOK" || { echo "RENDER_WEB_DEPLOY_HOOK_URL is not configured"; exit 1; }
+          curl --fail-with-body --retry 3 --retry-all-errors --request POST "${API_DEPLOY_HOOK}&ref=${COMMIT_SHA}"
+          curl --fail-with-body --retry 3 --retry-all-errors --request POST "${WEB_DEPLOY_HOOK}&ref=${COMMIT_SHA}"

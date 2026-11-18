@@ -1,6 +1,7 @@
 import { randomBytes } from "node:crypto";
 import { hash } from "bcryptjs";
 import { currentUser } from "@core/lib/auth";
+import { applicationUrl } from "@core/lib/app-url";
 import { db } from "@core/lib/db";
 import { fail, ok } from "@core/lib/http";
 import { NextRequest, NextResponse } from "next/server";
@@ -44,7 +45,7 @@ export async function POST(_request: NextRequest, { params }: { params: Promise<
       employeeName: employee.fullName,
       loginEmail: account.email,
       temporaryPassword,
-      loginUrl: process.env.APP_URL ?? new URL(_request.url).origin,
+      loginUrl: applicationUrl(new URL(_request.url).origin),
     });
   } catch (error) {
     return fail(error);

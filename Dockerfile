@@ -21,7 +21,11 @@ CMD ["./node_modules/.bin/prisma", "migrate", "deploy"]
 FROM deps AS builder
 ARG APP_NAME=web
 ARG API_INTERNAL_URL=http://api:4000
+ARG API_INTERNAL_HOSTPORT=
 ENV API_INTERNAL_URL=${API_INTERNAL_URL}
+ENV API_INTERNAL_HOSTPORT=${API_INTERNAL_HOSTPORT}
+ENV DATABASE_URL=postgresql://build:build@127.0.0.1:5432/build
+ENV DIRECT_URL=postgresql://build:build@127.0.0.1:5432/build
 COPY . .
 RUN npx prisma generate
 RUN npm run build --workspace @hexvault/${APP_NAME}
@@ -39,6 +43,8 @@ WORKDIR /workspace
 COPY --from=builder /standalone/ ./
 COPY --from=builder /workspace/node_modules/bcryptjs /workspace/node_modules/bcryptjs
 COPY --from=builder /workspace/scripts/provision-object-store.mjs /workspace/scripts/provision-object-store.mjs
+COPY --from=migrations /workspace/node_modules /workspace/migrations/node_modules
+COPY --from=migrations /workspace/prisma /workspace/prisma
 WORKDIR /workspace/apps/${APP_NAME}
 RUN chown -R node:node /workspace
 USER node
