@@ -1,6 +1,7 @@
 import { db } from "@core/lib/db";
+import { cache } from "react";
 type Actor = { roles: string[]; employee?: { id: string; departmentId?: string | null } | null };
-export async function visibleEmployeeIds(actor: Actor): Promise<string[] | null> {
+export const visibleEmployeeIds = cache(async (actor: Actor): Promise<string[] | null> => {
   if (actor.roles.some(role => ["OWNER", "HR"].includes(role))) return null;
   if (!actor.employee) return [];
   if (actor.roles.includes("DEPARTMENT_HEAD")) {
@@ -12,4 +13,4 @@ export async function visibleEmployeeIds(actor: Actor): Promise<string[] | null>
     return [...new Set([actor.employee.id, ...memberships.map(item => item.employeeId)])];
   }
   return [actor.employee.id];
-}
+});

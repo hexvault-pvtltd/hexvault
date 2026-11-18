@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import Image from "next/image";
+import { NavigationPending } from "./navigation-pending";
 import { usePathname } from "next/navigation";
 import { useEffect, useRef, useState, type KeyboardEvent as ReactKeyboardEvent } from "react";
 import {
@@ -108,7 +109,7 @@ export function Workspace({ children, name, role, roles }: { children: React.Rea
         </button>
         {expandedGroup === group.title && <ul className="mt-1 space-y-0.5">{group.links.map(([label, href, Icon]) => {
           const active = isActive(pathname, href);
-          return <li key={href}><Link href={href} onClick={() => setMobileOpen(false)} aria-current={active ? "page" : undefined} className={`flex min-h-9 items-center gap-2.5 rounded-xl px-3 text-xs font-medium tracking-[-.01em] transition-colors ${active ? "bg-[#171717] text-white" : "text-[#656565] hover:bg-[#f2f2f2] hover:text-[#171717]"}`}><Icon size={15} strokeWidth={1.8}/>{label}</Link></li>;
+          return <li key={href}><Link href={href} onClick={() => setMobileOpen(false)} aria-current={active ? "page" : undefined} className={`flex min-h-9 items-center gap-2.5 rounded-xl px-3 text-xs font-medium tracking-[-.01em] transition-colors ${active ? "bg-[#171717] text-white" : "text-[#656565] hover:bg-[#f2f2f2] hover:text-[#171717]"}`}><Icon size={15} strokeWidth={1.8}/>{label}<NavigationPending /></Link></li>;
         })}</ul>}
       </section>)}
       {mobile && <div className="border-t border-[var(--border)] pt-3"><button type="button" onClick={logout} disabled={logoutBusy} className="flex min-h-10 w-full items-center gap-2 rounded-xl px-3 text-xs text-[#656565] hover:bg-[#f2f2f2]"><LogOut size={15}/>{logoutBusy ? "Signing out…" : "Sign out"}</button></div>}

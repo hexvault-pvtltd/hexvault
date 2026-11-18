@@ -15,7 +15,7 @@ export default async function Dashboard() {
   const todayEnd = new Date(today.getTime() + 86_399_999);
   const weekStart = new Date(today);
   weekStart.setUTCDate(weekStart.getUTCDate() - 6);
-  const [activeEmployees, presentEmployees, onLeave, activeProjects, openTasks, pendingLeave, pendingCorrections, projects, recentTasks] = await Promise.all([
+  const [activeEmployees, presentEmployees, onLeave, activeProjects, openTasks, pendingLeave, pendingCorrections, projects, recentTasks, weeklyAttendance] = await Promise.all([
     db.employee.count({ where: { ...employeeFilter, lifecycleStatus: "ACTIVE" } }),
     db.attendanceSession.groupBy({ by: ["employeeId"], where: { workDate: today, ...(visible === null ? {} : { employeeId: { in: visible } }) } }),
     db.leaveRequest.count({ where: { status: "APPROVED", startDate: { lte: todayEnd }, endDate: { gte: today }, ...(visible === null ? {} : { employeeId: { in: visible } }) } }),
@@ -25,8 +25,8 @@ export default async function Dashboard() {
     db.attendanceCorrection.count({ where: { status: "PENDING", ...(visible === null ? {} : { employeeId: { in: visible } }) } }),
     db.project.findMany({ where: { status: "ACTIVE", ...(visible === null ? {} : { memberships: { some: { employeeId: { in: visible }, leftAt: null } } }) }, select: { id: true, name: true, code: true }, orderBy: { updatedAt: "desc" }, take: 4 }),
     db.task.findMany({ where: assignmentFilter, select: { id: true, title: true, status: true, project: { select: { name: true } } }, orderBy: { updatedAt: "desc" }, take: 5 }),
+    db.attendanceSession.groupBy({ by: ["workDate"], where: { workDate: { gte: weekStart, lte: today }, ...(visible === null ? {} : { employeeId: { in: visible } }) }, _count: { _all: true }, orderBy: { workDate: "asc" } }),
   ]);
-  const weeklyAttendance = await db.attendanceSession.groupBy({ by: ["workDate"], where: { workDate: { gte: weekStart, lte: today }, ...(visible === null ? {} : { employeeId: { in: visible } }) }, _count: { _all: true }, orderBy: { workDate: "asc" } });
   const attendanceCountByDay = new Map(weeklyAttendance.map((day) => [day.workDate.toISOString().slice(0, 10), day._count._all]));
   const attendanceDays = Array.from({ length: 7 }, (_, index) => {
     const day = new Date(weekStart);

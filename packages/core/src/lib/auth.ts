@@ -1,5 +1,6 @@
 import { createHash, randomBytes } from "node:crypto";
 import { cookies, headers } from "next/headers";
+import { cache } from "react";
 import { db } from "@core/lib/db";
 
 export const SESSION_COOKIE = "hv_session";
@@ -7,7 +8,9 @@ export const SESSION_COOKIE = "hv_session";
 // depend on APP_URL being configured in every Vercel environment.
 export function sessionCookieSecure() { return process.env.NODE_ENV === "production"; }
 export function hashToken(token: string) { return createHash("sha256").update(token).digest("hex"); }
-export async function currentUser() {
+// Share the session lookup between layouts, pages, and permission checks during
+// one server render. React discards this cache after the request completes.
+export const currentUser = cache(async () => {
   const token = (await cookies()).get(SESSION_COOKIE)?.value;
   if (!token) return null;
   const session = await db.session.findUnique({ where: { tokenHash: hashToken(token) }, include: { user: { include: { roles: { where: { revokedAt: null }, include: { role: true } }, employee: true } } } });
@@ -16,7 +19,7 @@ export async function currentUser() {
   // here so a stale user status can never keep a suspended/former employee in.
   if (session.user.employee && ["SUSPENDED", "EXITED"].includes(session.user.employee.lifecycleStatus)) return null;
   return { ...session.user, roles: session.user.roles.map((r) => r.role.code), sessionId: session.id };
-}
+});
 export async function requireRole(...roles: string[]) {
   const user = await currentUser();
   if (!user) throw new AuthError(401, "UNAUTHENTICATED", "Sign in to continue.");
