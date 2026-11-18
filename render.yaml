@@ -47,10 +47,6 @@ services:
         generateValue: true
       - key: COMPANY_TIMEZONE
         value: Asia/Kolkata
-      - key: RESEND_API_KEY
-        sync: false
-      - key: RESEND_FROM
-        sync: false
 
   - type: web
     name: hexvault-web

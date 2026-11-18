@@ -12,16 +12,13 @@ The browser talks only to the web origin. The web service proxies `/api/*` over 
 
 1. Push the repository to GitHub.
 2. In Render, choose **New > Blueprint**, connect the repository, and select `render.yaml`.
-3. Enter the two prompted email values:
-   - `RESEND_API_KEY`: a Resend production API key.
-   - `RESEND_FROM`: a verified sender, for example `HEXVAULT <careers@example.com>`.
-4. Apply the Blueprint. Render creates the database and services. The API container runs `prisma migrate deploy` before starting the server.
-5. In each Render service, copy **Settings > Deploy Hook**.
-6. Add these GitHub Actions repository secrets:
+3. Apply the Blueprint. Render creates the database and services. The API container runs `prisma migrate deploy` before starting the server.
+4. In each Render service, copy **Settings > Deploy Hook**.
+5. Add these GitHub Actions repository secrets:
    - `RENDER_API_DEPLOY_HOOK_URL`
    - `RENDER_WEB_DEPLOY_HOOK_URL`
-7. Create a protected GitHub environment named `production`. Add required reviewers if the account plan supports them.
-8. Protect the `main` branch and require `HEXVAULT validation` and both Docker build checks.
+6. Create a protected GitHub environment named `production`. Add required reviewers if the account plan supports them.
+7. Protect the `main` branch and require `HEXVAULT validation` and both Docker build checks.
 
 Render automatic deploys are disabled in the Blueprint. A push to `main` deploys only after TypeScript, lint, tests, and both production Docker builds pass. The workflow asks Render to deploy the exact verified commit SHA.
 
