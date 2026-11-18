@@ -88,7 +88,7 @@ jobs:
           npm run test --workspaces --if-present
 
   deploy-render:
-    name: Deploy verified commit to Render
+    name: Deploy API to Render
     needs: validate
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
@@ -97,14 +97,12 @@ jobs:
       group: render-production
       cancel-in-progress: false
     steps:
-      - name: Trigger API and web deploys
+      - name: Trigger Render API deploy
         env:
           API_DEPLOY_HOOK: ${{ secrets.RENDER_API_DEPLOY_HOOK_URL }}
-          WEB_DEPLOY_HOOK: ${{ secrets.RENDER_WEB_DEPLOY_HOOK_URL }}
           COMMIT_SHA: ${{ github.sha }}
         run: |
           test -n "$API_DEPLOY_HOOK" || { echo "RENDER_API_DEPLOY_HOOK_URL is not configured"; exit 1; }
-          test -n "$WEB_DEPLOY_HOOK" || { echo "RENDER_WEB_DEPLOY_HOOK_URL is not configured"; exit 1; }
 
           build_hook_url() {
             local url="$1"
@@ -117,12 +115,7 @@ jobs:
           }
 
           api_url=$(build_hook_url "$API_DEPLOY_HOOK" "$COMMIT_SHA")
-          web_url=$(build_hook_url "$WEB_DEPLOY_HOOK" "$COMMIT_SHA")
 
           echo "Triggering hexvault-api deploy hook..."
           curl --fail-with-body --retry 3 --retry-all-errors --request POST "$api_url"
-          echo ""
-
-          echo "Triggering hexvault-web deploy hook..."
-          curl --fail-with-body --retry 3 --retry-all-errors --request POST "$web_url"
-          echo ""
+          echo "Render API deployment triggered successfully."

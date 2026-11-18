@@ -1,24 +1,23 @@
 # HEXVAULT deployment on Render
 
-The repository contains a Render Blueprint (`render.yaml`) for two Docker web services and one managed PostgreSQL database:
+The repository contains a Render Blueprint (`render.yaml`) for the backend API web service and managed PostgreSQL database:
 
-- `hexvault-web`: public Next.js UI, including `/careers`
 - `hexvault-api`: API, authentication, HR controls, and Prisma migrations
 - `hexvault-db`: PostgreSQL 16
 
-The browser talks only to the web origin. The web service proxies `/api/*` over Render's private network to the API service, so session cookies remain same-origin.
+The frontend is hosted separately (e.g. on Vercel) and communicates with `hexvault-api`.
 
 ## First deployment
 
 1. Push the repository to GitHub.
 2. In Render, choose **New > Blueprint**, connect the repository, and select `render.yaml`.
-3. Apply the Blueprint. Render creates the database and services. The API container runs `prisma migrate deploy` before starting the server.
-4. In each Render service, copy **Settings > Deploy Hook**.
-5. Add these GitHub Actions repository secrets:
+3. Apply the Blueprint. Render creates the database and API service.
+4. Set `APP_URL` in the `hexvault-api` Environment settings to your frontend domain (e.g., `https://your-domain.vercel.app`).
+5. In `hexvault-api`, copy **Settings > Deploy Hook**.
+6. Add this GitHub Actions repository secret:
    - `RENDER_API_DEPLOY_HOOK_URL`
-   - `RENDER_WEB_DEPLOY_HOOK_URL`
-6. Create a protected GitHub environment named `production`. Add required reviewers if the account plan supports them.
-7. Protect the `main` branch and require the `HEXVAULT validation` check.
+7. Create a protected GitHub environment named `production`. Add required reviewers if the account plan supports them.
+8. Protect the `main` branch and require the `HEXVAULT validation` check.
 
 Render automatic deploys are disabled in the Blueprint. A push to `main` deploys only after TypeScript, lint, tests, database migration tests, and Next.js builds pass in CI. The workflow asks Render to deploy the exact verified commit SHA.
 

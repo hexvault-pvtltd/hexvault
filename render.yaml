@@ -41,54 +41,10 @@ services:
           name: hexvault-db
           property: connectionString
       - key: APP_URL
-        fromService:
-          type: web
-          name: hexvault-web
-          envVarKey: RENDER_EXTERNAL_URL
+        sync: false # Set in Render to your frontend URL (e.g. https://your-domain.vercel.app)
       - key: AUTH_SECRET
         generateValue: true
       - key: NOTES_ENCRYPTION_KEY
         generateValue: true
-      - key: COMPANY_TIMEZONE
-        value: Asia/Kolkata
-
-  - type: web
-    name: hexvault-web
-    runtime: docker
-    region: singapore
-    plan: free
-    dockerfilePath: ./Dockerfile
-    dockerContext: .
-    dockerBuildArgs:
-      - key: APP_NAME
-        value: web
-      - key: API_INTERNAL_HOSTPORT
-        value: hexvault-api:10000
-    dockerCommand: node server.js
-    healthCheckPath: /healthz
-    autoDeployTrigger: off
-    envVars:
-      - key: APP_NAME
-        value: web
-      - key: NODE_ENV
-        value: production
-      - key: DATABASE_URL
-        fromDatabase:
-          name: hexvault-db
-          property: connectionString
-      - key: DIRECT_URL
-        fromDatabase:
-          name: hexvault-db
-          property: connectionString
-      - key: API_INTERNAL_HOSTPORT
-        fromService:
-          type: web
-          name: hexvault-api
-          property: hostport
-      - key: APP_URL
-        fromService:
-          type: web
-          name: hexvault-web
-          envVarKey: RENDER_EXTERNAL_URL
       - key: COMPANY_TIMEZONE
         value: Asia/Kolkata
