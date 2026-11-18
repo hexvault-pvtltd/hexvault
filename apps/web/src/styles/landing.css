@@ -146,15 +146,3 @@
 @media (prefers-reduced-motion: reduce) {
   .hv-landing *, .hv-landing *::before, .hv-landing *::after { animation: none !important; transition: none !important; scroll-behavior: auto !important; }
 }
-.hv-info-dialog { max-height: calc(100% - 32px); overflow-y: auto; }
-.hv-info-wide { width: min(760px, calc(100% - 32px)); }
-.hv-dialog-content p { margin-bottom: 18px; }
-.hv-dialog-section { margin-bottom: 20px; }
-.hv-dialog-section h3 { margin: 0 0 10px; color: #f77b45; font-size: 12px; letter-spacing: .12em; text-transform: uppercase; }
-.hv-dialog-section ul { display: grid; gap: 10px; margin: 0; padding: 0; list-style: none; }
-.hv-info-wide .hv-dialog-section ul { grid-template-columns: repeat(2, minmax(0, 1fr)); }
-.hv-dialog-section li { display: grid; gap: 5px; padding: 14px; border: 1px solid #2a2522; border-radius: 12px; background: #ffffff06; }
-.hv-dialog-section li strong { font-size: 14px; }
-.hv-dialog-section li span { color: #a5a5a5; font-size: 13px; line-height: 1.55; }
-.hv-dialog-cta { display: inline-flex; align-items: center; min-height: 44px; padding: 0 20px; border-radius: 999px; background: #f46327; color: #fff !important; font-weight: 700; }
-@media (max-width: 640px) { .hv-info-wide .hv-dialog-section ul { grid-template-columns: 1fr; } }

@@ -1,4 +1,3 @@
-import { currentUser } from "@core/lib/auth";
-import { db } from "@core/lib/db";
-import { notFound } from "next/navigation";
-export default async function Sessions(){const user=await currentUser();if(!user)notFound();const items=await db.session.findMany({where:{userId:user.id},select:{id:true,createdAt:true,expiresAt:true,revokedAt:true,userAgent:true,ip:true},orderBy:{createdAt:"desc"},take:50});return <><div className="mb-7"><p className="text-xs text-slate-400">Account / Security</p><h1 className="mt-2 text-2xl font-semibold">Sessions</h1><p className="mt-1 text-sm text-slate-500">Devices signed in to your account.</p></div><div className="rounded-xl border border-slate-200 bg-white">{items.map(s=><div key={s.id} className="border-b border-slate-50 px-5 py-4 last:border-0"><p className="text-xs font-semibold">{s.userAgent??"Unknown device"}</p><p className="mt-1 text-[11px] text-slate-500">{s.ip??"IP unavailable"} · Started {s.createdAt.toLocaleString()} · {s.revokedAt?"Revoked":`Expires ${s.expiresAt.toLocaleString()}`}</p></div>)}</div></>}
+import HexvaultLanding from "@/components/landing/hexvault-landing";
+
+export default function Home() { return <HexvaultLanding />; }

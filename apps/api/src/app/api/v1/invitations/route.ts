@@ -1,1 +1,1 @@
-export { acceptInvitation as POST } from "@core/features/auth/invitations";
+export { inviteEmployee as POST } from "@core/features/auth/invitations";

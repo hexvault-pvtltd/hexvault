@@ -1,7 +1,12 @@
 # See https://help.github.com/articles/ignoring-files/ for more about ignoring files.
 
 # dependencies
-/node_modules
+**/node_modules/
+/hexvault-temp/
+/hexvault/
+/archive/
+.turbo/
+.cache/
 /.pnp
 .pnp.*
 .yarn/*
@@ -10,31 +15,52 @@
 !.yarn/releases
 !.yarn/versions
 
-# testing
-/coverage
+# testing and generated reports
+**/coverage/
+**/test-results/
+**/playwright-report/
+**/playwright/.cache/
+**/storybook-static/
 
 # next.js
-/.next/
-/out/
+**/.next/
+**/out/
+**/.vercel/
 
 # production
-/build
+**/build/
+**/dist/
 
 # misc
 .DS_Store
+Thumbs.db
+Desktop.ini
 *.pem
+.idea/
+.vscode/*
+!.vscode/extensions.json
+!.vscode/settings.json
+
+# local runtime data and temporary files
+/storage/
+/uploads/
+*.log
+*.tmp
+*.temp
+*.bak
+*.swp
+*.swo
 
 # debug
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
 .pnpm-debug.log*
+lerna-debug.log*
 
-# env files (can opt-in for committing if needed)
+# local secrets (keep the safe template committed)
 .env*
-
-# vercel
-.vercel
+!.env.example
 
 # typescript
 *.tsbuildinfo
