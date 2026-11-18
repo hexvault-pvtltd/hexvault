@@ -11,13 +11,27 @@ permissions:
 
 concurrency:
   group: ci-${{ github.workflow }}-${{ github.ref }}
-  cancel-in-progress: true
+  cancel-in-progress: ${{ github.ref != 'refs/heads/main' }}
 
 jobs:
   validate:
     name: HEXVAULT validation
     runs-on: ubuntu-latest
     timeout-minutes: 20
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: ci
+          POSTGRES_PASSWORD: ci
+          POSTGRES_DB: ci
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
     env:
       DATABASE_URL: postgresql://ci:ci@127.0.0.1:5432/ci
       DIRECT_URL: postgresql://ci:ci@127.0.0.1:5432/ci
@@ -40,6 +54,12 @@ jobs:
       - name: Generate Prisma Client
         run: npm run db:generate
 
+      - name: Verify Prisma migrations apply cleanly
+        run: npx prisma migrate deploy
+
+      - name: Verify migration status and schema sync
+        run: npx prisma migrate status --exit-code
+
       - name: Type-check web and API
         run: |
           npx tsc --noEmit --incremental false -p apps/web/tsconfig.json
@@ -47,6 +67,20 @@ jobs:
 
       - name: Run ESLint
         run: npm run lint
+
+      - name: Cache Next.js build
+        uses: actions/cache@v4
+        with:
+          path: |
+            apps/web/.next/cache
+            apps/api/.next/cache
+          key: ${{ runner.os }}-nextjs-${{ hashFiles('**/package-lock.json') }}-${{ hashFiles('apps/**', 'packages/**') }}
+          restore-keys: |
+            ${{ runner.os }}-nextjs-${{ hashFiles('**/package-lock.json') }}-
+            ${{ runner.os }}-nextjs-
+
+      - name: Build Next.js applications
+        run: npm run build
 
       - name: Run available test scripts
         run: |
@@ -97,5 +131,24 @@ jobs:
         run: |
           test -n "$API_DEPLOY_HOOK" || { echo "RENDER_API_DEPLOY_HOOK_URL is not configured"; exit 1; }
           test -n "$WEB_DEPLOY_HOOK" || { echo "RENDER_WEB_DEPLOY_HOOK_URL is not configured"; exit 1; }
-          curl --fail-with-body --retry 3 --retry-all-errors --request POST "${API_DEPLOY_HOOK}&ref=${COMMIT_SHA}"
-          curl --fail-with-body --retry 3 --retry-all-errors --request POST "${WEB_DEPLOY_HOOK}&ref=${COMMIT_SHA}"
+
+          build_hook_url() {
+            local url="$1"
+            local sha="$2"
+            if [[ "$url" == *"?"* ]]; then
+              echo "${url}&ref=${sha}"
+            else
+              echo "${url}?ref=${sha}"
+            fi
+          }
+
+          api_url=$(build_hook_url "$API_DEPLOY_HOOK" "$COMMIT_SHA")
+          web_url=$(build_hook_url "$WEB_DEPLOY_HOOK" "$COMMIT_SHA")
+
+          echo "Triggering hexvault-api deploy hook..."
+          curl --fail-with-body --retry 3 --retry-all-errors --request POST "$api_url"
+          echo ""
+
+          echo "Triggering hexvault-web deploy hook..."
+          curl --fail-with-body --retry 3 --retry-all-errors --request POST "$web_url"
+          echo ""

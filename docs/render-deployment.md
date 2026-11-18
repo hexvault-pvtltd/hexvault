@@ -66,6 +66,5 @@ The local stack includes PostgreSQL, a migration job, API, web, RustFS object st
 The checked-in Blueprint uses Render's free plans so it can be created without billing details. Free services can sleep and free PostgreSQL is not appropriate for long-lived production data. Before a real production launch:
 
 1. Change both web service plans to at least `0.5c-512mb` and the database to a persistent paid plan.
-2. Move the migration command out of `dockerCommand` and into `preDeployCommand` for zero-downtime deployments.
-3. Enable database backups and test restoration.
-4. Re-run `render blueprints validate render.yaml` before syncing the change.
+2. Ensure database backups and test restoration are enabled.
+3. Re-run `render blueprints validate render.yaml` before syncing the change.

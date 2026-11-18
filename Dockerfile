@@ -10,11 +10,12 @@ COPY package.json package-lock.json ./
 COPY apps/web/package.json apps/web/package.json
 COPY apps/api/package.json apps/api/package.json
 COPY packages/core/package.json packages/core/package.json
-RUN npm ci
+RUN --mount=type=cache,target=/root/.npm npm ci
 
 FROM base AS migrations
 WORKDIR /workspace
-RUN npm init -y && npm install --no-save --no-package-lock prisma@6.19.0
+RUN --mount=type=cache,target=/root/.npm \
+    npm init -y && npm install --no-save --no-package-lock prisma@6.19.3
 COPY prisma ./prisma
 CMD ["./node_modules/.bin/prisma", "migrate", "deploy"]
 
@@ -26,9 +27,11 @@ ENV API_INTERNAL_URL=${API_INTERNAL_URL}
 ENV API_INTERNAL_HOSTPORT=${API_INTERNAL_HOSTPORT}
 ENV DATABASE_URL=postgresql://build:build@127.0.0.1:5432/build
 ENV DIRECT_URL=postgresql://build:build@127.0.0.1:5432/build
-COPY . .
+COPY prisma ./prisma
 RUN npx prisma generate
-RUN npm run build --workspace @hexvault/${APP_NAME}
+COPY . .
+RUN --mount=type=cache,target=/workspace/apps/${APP_NAME}/.next/cache \
+    npm run build --workspace @hexvault/${APP_NAME}
 RUN mkdir -p /standalone/apps/${APP_NAME}/.next
 RUN cp -a apps/${APP_NAME}/.next/standalone/. /standalone/
 RUN cp -a apps/${APP_NAME}/.next/static /standalone/apps/${APP_NAME}/.next/static

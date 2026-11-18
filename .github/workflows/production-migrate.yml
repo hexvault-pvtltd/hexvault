@@ -32,13 +32,18 @@ jobs:
           DIRECT_URL: ${{ secrets.PRODUCTION_DATABASE_URL }}
         run: |
           node -e 'try { const u = new URL(process.env.DIRECT_URL); if (!["postgres:", "postgresql:"].includes(u.protocol) || !u.hostname || !u.username || !u.password) throw new Error(); } catch { console.error("Set PRODUCTION_DATABASE_URL to the reviewed Render Postgres external URL."); process.exit(1); }'
+      - name: Check migration status before deploying
+        env:
+          DATABASE_URL: ${{ secrets.PRODUCTION_DATABASE_URL }}
+          DIRECT_URL: ${{ secrets.PRODUCTION_DATABASE_URL }}
+        run: npx prisma migrate status --schema prisma/schema.prisma
       - name: Apply migrations
         env:
           DATABASE_URL: ${{ secrets.PRODUCTION_DATABASE_URL }}
           DIRECT_URL: ${{ secrets.PRODUCTION_DATABASE_URL }}
-        run: npx prisma migrate deploy
-      - name: Check migration status
+        run: npx prisma migrate deploy --schema prisma/schema.prisma
+      - name: Confirm migration status after deploying
         env:
           DATABASE_URL: ${{ secrets.PRODUCTION_DATABASE_URL }}
           DIRECT_URL: ${{ secrets.PRODUCTION_DATABASE_URL }}
-        run: npx prisma migrate status
+        run: npx prisma migrate status --schema prisma/schema.prisma

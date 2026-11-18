@@ -20,7 +20,11 @@ services:
     plan: free
     dockerfilePath: ./Dockerfile
     dockerContext: .
-    dockerCommand: /bin/sh -c '/workspace/migrations/node_modules/.bin/prisma migrate deploy --schema /workspace/prisma/schema.prisma && node server.js'
+    dockerBuildArgs:
+      - key: APP_NAME
+        value: api
+    preDeployCommand: /workspace/migrations/node_modules/.bin/prisma migrate deploy --schema /workspace/prisma/schema.prisma
+    dockerCommand: node server.js
     healthCheckPath: /api/health/ready
     autoDeployTrigger: off
     envVars:
@@ -55,6 +59,11 @@ services:
     plan: free
     dockerfilePath: ./Dockerfile
     dockerContext: .
+    dockerBuildArgs:
+      - key: APP_NAME
+        value: web
+      - key: API_INTERNAL_HOSTPORT
+        value: hexvault-api:10000
     dockerCommand: node server.js
     healthCheckPath: /healthz
     autoDeployTrigger: off
