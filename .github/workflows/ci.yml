@@ -58,7 +58,9 @@ jobs:
         run: npx prisma migrate deploy
 
       - name: Check for unmigrated Prisma schema changes
-        run: npx prisma migrate diff --from-schema-datamodel prisma/schema.prisma --to-migrations prisma/migrations --exit-code
+        # The previous step applied all migrations to this disposable CI database.
+        # Compare that database to the datamodel without replaying migrations in a shadow database.
+        run: npx prisma migrate diff --from-schema-datasource prisma/schema.prisma --to-schema-datamodel prisma/schema.prisma --exit-code
 
       - name: Type-check web and API
         run: |
