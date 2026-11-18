@@ -18,9 +18,9 @@ The browser talks only to the web origin. The web service proxies `/api/*` over 
    - `RENDER_API_DEPLOY_HOOK_URL`
    - `RENDER_WEB_DEPLOY_HOOK_URL`
 6. Create a protected GitHub environment named `production`. Add required reviewers if the account plan supports them.
-7. Protect the `main` branch and require `HEXVAULT validation` and both Docker build checks.
+7. Protect the `main` branch and require the `HEXVAULT validation` check.
 
-Render automatic deploys are disabled in the Blueprint. A push to `main` deploys only after TypeScript, lint, tests, and both production Docker builds pass. The workflow asks Render to deploy the exact verified commit SHA.
+Render automatic deploys are disabled in the Blueprint. A push to `main` deploys only after TypeScript, lint, tests, database migration tests, and Next.js builds pass in CI. The workflow asks Render to deploy the exact verified commit SHA.
 
 ## Optional production integrations
 
