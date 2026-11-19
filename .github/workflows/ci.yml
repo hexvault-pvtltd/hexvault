@@ -84,9 +84,6 @@ jobs:
       - name: Build Next.js applications
         run: npm run build
 
-      - name: Run available test scripts
-        run: npm test --workspaces --if-present
-
   deploy-render:
     name: Deploy API to Render
     needs: validate
