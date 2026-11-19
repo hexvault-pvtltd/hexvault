@@ -8,12 +8,13 @@ import { useEffect, useRef, useState, type KeyboardEvent as ReactKeyboardEvent }
 import {
   Activity, Bell, BriefcaseBusiness, Building2, CalendarDays, ChevronDown, Cloud,
   ClipboardList, DatabaseBackup, FileText, LayoutDashboard, LogOut, Menu, MessageCircle,
-  HardDrive, Search, Settings2, Users, WalletCards, X,
+  HardDrive, Search, Settings2, ShieldCheck, Users, WalletCards, X,
 } from "lucide-react";
 
 type IconComponent = typeof LayoutDashboard;
 type NavLink = readonly [label: string, href: string, icon: IconComponent];
-type NavGroup = { title: string; links: NavLink[] };
+type NavSection = { title: string; links: NavLink[] };
+type NavGroup = { title: string; links: NavLink[]; icon?: IconComponent; sections?: NavSection[] };
 const OWNER_HR = ["OWNER", "HR"];
 const MANAGEMENT = ["OWNER", "DEPARTMENT_HEAD", "HR", "TEAM_LEAD"];
 const navigation: NavGroup[] = [
@@ -25,6 +26,40 @@ const navigation: NavGroup[] = [
   { title: "Scheduling & policies", links: [["Shifts", "/shifts", CalendarDays], ["Shift assignments", "/shifts/assignments", CalendarDays], ["Holidays", "/holidays", CalendarDays], ["Leave policies", "/leave/policies", WalletCards]] },
   { title: "Administration", links: [["Website products", "/settings/products", BriefcaseBusiness], ["CDN files", "/cdn", Cloud], ["Storage", "/settings/storage", HardDrive], ["Backups", "/backups", DatabaseBackup], ["Audit log", "/security/audit-logs", Activity], ["Settings", "/settings", Settings2]] },
 ];
+const ownerNavigation: NavGroup[] = [
+  { title: "Overview", icon: LayoutDashboard, links: [["Dashboard", "/dashboard", LayoutDashboard], ["Notifications", "/notifications", Bell]] },
+  { title: "Work & collaboration", icon: BriefcaseBusiness, links: [], sections: [
+    { title: "Daily work", links: [["Chat", "/chat", MessageCircle], ["Tasks", "/tasks", ClipboardList], ["Work journal", "/work-logs/my-journal", FileText]] },
+    { title: "Projects", links: [["All projects", "/projects", BriefcaseBusiness], ["Create project", "/projects/new", BriefcaseBusiness]] },
+    { title: "Performance", links: [["Overview", "/performance", Activity], ["Goals", "/performance/goals", ClipboardList], ["Reviews", "/performance/reviews", FileText]] },
+  ] },
+  { title: "People & organization", icon: Users, links: [], sections: [
+    { title: "Workforce", links: [["Employees", "/workforce", Users], ["Add employee", "/workforce/new", Users], ["Former members", "/former-members", Users]] },
+    { title: "Company structure", links: [["Organization chart", "/organization-chart", Building2], ["Departments", "/departments", Building2], ["Teams", "/teams", Users]] },
+  ] },
+  { title: "HR & hiring", icon: FileText, links: [], sections: [
+    { title: "Recruitment", links: [["Job postings", "/hr/jobs", BriefcaseBusiness]] },
+    { title: "Employee lifecycle", links: [["Onboarding", "/hr/onboarding", BriefcaseBusiness], ["Offboarding", "/hr/offboarding", BriefcaseBusiness]] },
+    { title: "Records", links: [["Employee documents", "/hr/documents", FileText]] },
+  ] },
+  { title: "Attendance & leave", icon: CalendarDays, links: [], sections: [
+    { title: "Attendance", links: [["Attendance", "/attendance", CalendarDays], ["Corrections", "/attendance/corrections", CalendarDays]] },
+    { title: "Scheduling", links: [["Shifts", "/shifts", CalendarDays], ["Shift assignments", "/shifts/assignments", CalendarDays], ["Holidays", "/holidays", CalendarDays]] },
+    { title: "Leave", links: [["Leave requests", "/leave", WalletCards], ["Leave policies", "/leave/policies", WalletCards]] },
+  ] },
+  { title: "Website & data", icon: HardDrive, links: [], sections: [
+    { title: "Website", links: [["Products", "/settings/products", BriefcaseBusiness]] },
+    { title: "Files & storage", links: [["CDN files", "/cdn", Cloud], ["Storage optimization", "/settings/storage", HardDrive]] },
+    { title: "Backup & recovery", links: [["Backups", "/backups", DatabaseBackup]] },
+  ] },
+  { title: "Security & settings", icon: ShieldCheck, links: [], sections: [
+    { title: "Security", links: [["Audit log", "/security/audit-logs", Activity], ["Active sessions", "/security/sessions", ShieldCheck]] },
+    { title: "Settings", links: [["Company settings", "/settings", Settings2], ["My account", "/account", Users]] },
+  ] },
+];
+function groupLinks(group: NavGroup) {
+  return [...group.links, ...(group.sections ?? []).flatMap(section => section.links)];
+}
 function allowed(href: string, roles: string[]) {
   if (["/former-members", "/organization-chart", "/departments", "/teams"].includes(href)) return MANAGEMENT.some((role) => roles.includes(role));
   if (["/shifts", "/shifts/assignments", "/holidays", "/leave/policies", "/hr/documents", "/hr/jobs"].includes(href)) return OWNER_HR.some((role) => roles.includes(role));
@@ -32,13 +67,13 @@ function allowed(href: string, roles: string[]) {
   if (href === "/settings/storage" || href === "/backups" || href === "/security/audit-logs" || href === "/settings" || href === "/settings/products") return roles.includes("OWNER");
   return true;
 }
-function isActive(path: string, href: string) {
+function isActive(path: string, href: string, links: NavLink[]) {
   if (path === href) return true;
   if (!path.startsWith(`${href}/`)) return false;
-  const moreSpecificLinkExists = navigation.some((group) => group.links.some(([, candidate]) => {
+  const moreSpecificLinkExists = links.some(([, candidate]) => {
     if (candidate === href || !candidate.startsWith(`${href}/`)) return false;
     return path === candidate || path.startsWith(`${candidate}/`);
-  }));
+  });
   return !moreSpecificLinkExists;
 }
 function trapDialogFocus(event: ReactKeyboardEvent<HTMLElement>) {
@@ -52,11 +87,16 @@ function trapDialogFocus(event: ReactKeyboardEvent<HTMLElement>) {
 
 export function Workspace({ children, name, role, roles }: { children: React.ReactNode; name: string; role: string; roles: string[] }) {
   const pathname = usePathname();
-  const visibleGroups = navigation.map((group) => ({ ...group, links: group.links.filter(([, href]) => allowed(href, roles)) })).filter((group) => group.links.length > 0);
-  const currentGroup = visibleGroups.find((group) => group.links.some(([, href]) => isActive(pathname, href)))?.title ?? "Overview";
-  const currentPageLabel = visibleGroups.flatMap((group) => group.links).filter(([, href]) => isActive(pathname, href)).sort((a, b) => b[1].length - a[1].length)[0]?.[0] ?? "Dashboard";
-  const [expandedState, setExpandedState] = useState({ pathname, group: currentGroup });
-  const expandedGroup = expandedState.pathname === pathname ? expandedState.group : currentGroup;
+  const isOwner = roles.includes("OWNER");
+  const visibleGroups = (isOwner ? ownerNavigation : navigation).map((group) => ({ ...group,
+    links: group.links.filter(([, href]) => allowed(href, roles)),
+    sections: group.sections?.map(section => ({ ...section, links: section.links.filter(([, href]) => allowed(href, roles)) })).filter(section => section.links.length > 0),
+  })).filter((group) => groupLinks(group).length > 0);
+  const visibleLinks = visibleGroups.flatMap(groupLinks);
+  const currentGroup = visibleGroups.find((group) => groupLinks(group).some(([, href]) => isActive(pathname, href, visibleLinks)))?.title ?? "Overview";
+  const currentPageLabel = visibleLinks.filter(([, href]) => isActive(pathname, href, visibleLinks)).sort((a, b) => b[1].length - a[1].length)[0]?.[0] ?? "Dashboard";
+  const [expandedState, setExpandedState] = useState({ pathname, groups: [currentGroup] });
+  const expandedGroups = expandedState.pathname === pathname ? expandedState.groups : [...new Set([...expandedState.groups, currentGroup])];
   const [mobileOpen, setMobileOpen] = useState(false);
   const [profileOpen, setProfileOpen] = useState(false);
   const [logoutError, setLogoutError] = useState("");
@@ -101,17 +141,27 @@ export function Workspace({ children, name, role, roles }: { children: React.Rea
     finally { setLogoutBusy(false); }
   }
   const initials = name.split(" ").map((part) => part[0]).join("").slice(0, 2);
+  function navLinks(links: NavLink[]) {
+    return <ul className="space-y-0.5">{links.map(([label, href, Icon]) => {
+      const active = isActive(pathname, href, visibleLinks);
+      return <li key={href}><Link href={href} onClick={() => setMobileOpen(false)} aria-current={active ? "page" : undefined} className={`flex min-h-9 items-center gap-2.5 rounded-xl px-3 text-xs font-medium tracking-[-.01em] transition-colors ${active ? "bg-[#171717] text-white" : "text-[#656565] hover:bg-[#f2f2f2] hover:text-[#171717]"}`}><Icon size={15} strokeWidth={1.8} aria-hidden="true"/>{label}<NavigationPending /></Link></li>;
+    })}</ul>;
+  }
   function sideNav(mobile = false) {
     return <nav aria-label="Workspace navigation" className="space-y-1.5">
-      {visibleGroups.map((group) => <section key={group.title} className="min-w-0">
-        <button type="button" aria-expanded={expandedGroup === group.title} onClick={() => setExpandedState({ pathname, group: expandedGroup === group.title ? "" : group.title })} className={`flex min-h-9 w-full min-w-0 items-center justify-between gap-2 rounded-lg px-3 py-1.5 text-left text-[10px] font-semibold tracking-[.02em] leading-tight transition-colors ${currentGroup === group.title ? "text-[#292929]" : "text-[var(--muted)] hover:text-[var(--foreground)]"}`}>
-          <span className="min-w-0 whitespace-nowrap">{group.title}</span><ChevronDown size={12} className={`shrink-0 transition-transform ${expandedGroup === group.title ? "rotate-180" : ""}`}/>
+      {visibleGroups.map((group, index) => {
+        const expanded = expandedGroups.includes(group.title);
+        const panelId = `${mobile ? "mobile" : "desktop"}-navigation-${index}`;
+        const GroupIcon = group.icon;
+        return <section key={group.title} className="min-w-0">
+        <button type="button" aria-expanded={expanded} aria-controls={panelId} onClick={() => setExpandedState({ pathname, groups: expanded ? expandedGroups.filter(title => title !== group.title) : [...expandedGroups, group.title] })} className={`flex min-h-10 w-full min-w-0 items-center justify-between gap-2 rounded-lg px-3 py-2 text-left text-[11px] font-semibold tracking-[-.01em] leading-tight transition-colors ${currentGroup === group.title ? "bg-neutral-50 text-[#292929]" : "text-[var(--muted)] hover:bg-neutral-50 hover:text-[var(--foreground)]"}`}>
+          <span className="flex min-w-0 items-center gap-2">{GroupIcon && <GroupIcon size={14} strokeWidth={1.8} aria-hidden="true"/>}<span>{group.title}</span></span><ChevronDown size={12} className={`shrink-0 transition-transform ${expanded ? "rotate-180" : ""}`}/>
         </button>
-        {expandedGroup === group.title && <ul className="mt-1 space-y-0.5">{group.links.map(([label, href, Icon]) => {
-          const active = isActive(pathname, href);
-          return <li key={href}><Link href={href} onClick={() => setMobileOpen(false)} aria-current={active ? "page" : undefined} className={`flex min-h-9 items-center gap-2.5 rounded-xl px-3 text-xs font-medium tracking-[-.01em] transition-colors ${active ? "bg-[#171717] text-white" : "text-[#656565] hover:bg-[#f2f2f2] hover:text-[#171717]"}`}><Icon size={15} strokeWidth={1.8}/>{label}<NavigationPending /></Link></li>;
-        })}</ul>}
-      </section>)}
+        <div id={panelId} hidden={!expanded} className="mb-2 mt-1 space-y-3">
+          {group.links.length > 0 && navLinks(group.links)}
+          {group.sections?.map(section => <div key={section.title} className="ml-3 border-l border-slate-100 pl-2"><p className="px-3 pb-1 pt-1 text-[9px] font-semibold uppercase tracking-[.08em] text-slate-400">{section.title}</p>{navLinks(section.links)}</div>)}
+        </div>
+      </section>;})}
       {mobile && <div className="border-t border-[var(--border)] pt-3"><button type="button" onClick={logout} disabled={logoutBusy} className="flex min-h-10 w-full items-center gap-2 rounded-xl px-3 text-xs text-[#656565] hover:bg-[#f2f2f2]"><LogOut size={15}/>{logoutBusy ? "Signing out…" : "Sign out"}</button></div>}
     </nav>;
   }
