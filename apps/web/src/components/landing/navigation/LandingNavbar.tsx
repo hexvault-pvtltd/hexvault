@@ -1,29 +1,29 @@
 "use client";
 
 import Link from "next/link";
-import { Menu, X, ChevronDown } from "lucide-react";
+import { Menu, X } from "lucide-react";
 import { useEffect, useRef } from "react";
 import LandingLogo from "../shared/LandingLogo";
 import { landingProducts, type OpenLandingInfo } from "../shared/landingConfig";
 import NavigationDropdown from "./NavigationDropdown";
 
-function NavigationLinks({ onInfo }: { onInfo: OpenLandingInfo }) {
+function NavigationLinks({ onInfo, onNavigate }: { onInfo: OpenLandingInfo; onNavigate: () => void }) {
   return (
     <>
       <NavigationDropdown label="Products">
-        <Link href="/products"><strong>Explore our products</strong><span>Tools and platforms built for scale.</span></Link>
+        <Link href="/products" onClick={onNavigate}><strong>Explore our products</strong><span>Tools and platforms built for scale.</span></Link>
         {landingProducts.length ? landingProducts.map(product => (
-          <Link href={product.href} key={product.name}><strong>{product.name}</strong><span>{product.description}</span></Link>
+          <Link href={product.href} key={product.name} onClick={onNavigate}><strong>{product.name}</strong><span>{product.description}</span></Link>
         )) : null}
       </NavigationDropdown>
-      <button onClick={() => onInfo("pricing")}>Pricing</button>
+      <a href="#pricing" onClick={onNavigate}>Pricing</a>
       <NavigationDropdown label="Resources">
-        <Link href="/careers">Careers</Link>
+        <a href="#how-it-works" onClick={onNavigate}>How we work</a>
+        <Link href="/careers" onClick={onNavigate}>Careers</Link>
         <button onClick={() => onInfo("support")}>Support</button>
         <button onClick={() => onInfo("community")}>Community Guidelines</button>
       </NavigationDropdown>
-      <button onClick={() => onInfo("partners")}>Partners<ChevronDown size={14} aria-hidden="true" /></button>
-      <button onClick={() => onInfo("about")}>Why Hexvault<ChevronDown size={14} aria-hidden="true" /></button>
+      <a href="#why-hexvault" onClick={onNavigate}>Why Hexvault</a>
     </>
   );
 }
@@ -58,8 +58,11 @@ export default function LandingNavbar({ onInfo }: { onInfo: OpenLandingInfo }) {
     };
   }, []);
 
-  const openInfo: OpenLandingInfo = key => {
+  const closeNavigation = () => {
     headerRef.current?.querySelectorAll("details[open]").forEach(details => details.removeAttribute("open"));
+  };
+  const openInfo: OpenLandingInfo = key => {
+    closeNavigation();
     onInfo(key);
   };
 
@@ -67,12 +70,12 @@ export default function LandingNavbar({ onInfo }: { onInfo: OpenLandingInfo }) {
     <header className="hv-landing-header" ref={headerRef}>
       <nav className="hv-floating-nav" aria-label="Main navigation">
         <Link href="/" className="hv-home" aria-label="HEXVAULT home"><LandingLogo /></Link>
-        <div className="hv-desktop-links"><NavigationLinks onInfo={openInfo} /></div>
+        <div className="hv-desktop-links"><NavigationLinks onInfo={openInfo} onNavigate={closeNavigation} /></div>
         <button className="hv-signup" onClick={() => openInfo("signup")}>Sign up for free</button>
         <details className="hv-mobile-navigation">
           <summary aria-label="Toggle navigation"><Menu className="hv-menu-icon" size={22} /><X className="hv-close-icon" size={22} /></summary>
           <div className="hv-mobile-panel">
-            <NavigationLinks onInfo={openInfo} />
+            <NavigationLinks onInfo={openInfo} onNavigate={closeNavigation} />
             <button className="hv-signup" onClick={() => openInfo("signup")}>Sign up for free</button>
           </div>
         </details>

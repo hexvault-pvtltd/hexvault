@@ -7,7 +7,7 @@ import "./footer.css";
 type Entry = { label: string; href?: string; info?: LandingInfoKey };
 const groups: { title: string; entries: Entry[] }[] = [
   { title: "Services", entries: ["Web Development", "Mobile Development", "Cloud Engineering", "DevOps", "AI & Automation", "Product Engineering"].map(label => ({ label, href: "/contact#project-inquiry" })) },
-  { title: "Company", entries: [{ label: "About Us", info: "about" }, { label: "Our Process", href: "/contact#next-steps" }, { label: "Case Studies" }, { label: "Careers", href: "/careers" }, { label: "Blog" }, { label: "Contact", href: "/contact" }] },
+  { title: "Company", entries: [{ label: "About Us", href: "/#why-hexvault" }, { label: "Our Process", href: "/#how-it-works" }, { label: "Case Studies" }, { label: "Careers", href: "/careers" }, { label: "Blog" }, { label: "Contact", href: "/contact" }] },
   { title: "Resources", entries: [{ label: "Documentation" }, { label: "Help Center", info: "support" }, { label: "Guides" }, { label: "API Reference" }, { label: "Status" }, { label: "Security", href: "#footer-security" }] },
   { title: "Legal", entries: [{ label: "Privacy Policy", info: "privacy" }, { label: "Terms of Service", info: "terms" }, { label: "Cookie Policy" }, { label: "Acceptable Use" }, { label: "Data Processing" }, { label: "SLA" }] },
 ];

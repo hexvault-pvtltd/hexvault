@@ -65,6 +65,7 @@ const restrictedRoutes: Record<string, readonly string[]> = {
 };
 export function navigationForRoles(roles: readonly string[]): NavGroup[] {
   const owner = roles.includes("OWNER");
+  const hr = roles.includes("HR");
   const management = roles.some(role => MANAGEMENT.includes(role));
   const allowed = (href: string) => !restrictedRoutes[href] || restrictedRoutes[href].some(role => roles.includes(role));
   const mapLinks = (links: NavLink[]): NavLink[] => links.filter(([, href]) => allowed(href)).map(([label, href, icon]): NavLink => {
@@ -78,6 +79,7 @@ export function navigationForRoles(roles: readonly string[]): NavGroup[] {
   return navigation.map(group => ({ ...group,
     title: !owner && group.title === "Website & data" ? "Files"
       : !owner && group.title === "Security & settings" ? "My account"
+      : !owner && !hr && group.title === "HR & hiring" ? "Employee lifecycle"
       : !management && group.title === "People & organization" ? "My records" : group.title,
     links: mapLinks(group.links),
     sections: group.sections?.map(section => ({ ...section,

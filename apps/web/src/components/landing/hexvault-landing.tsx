@@ -8,6 +8,7 @@ import HeroBrandTypography from "./hero/HeroBrandTypography";
 import HeroContent from "./hero/HeroContent";
 import LandingNavbar from "./navigation/LandingNavbar";
 import LandingFooter from "./footer/LandingFooter";
+import LandingBody from "./LandingBody";
 import { landingInfo, type OpenLandingInfo } from "./shared/landingConfig";
 import "@/styles/landing.css";
 
@@ -26,8 +27,9 @@ export default function HexvaultLanding() {
         <ParticleBackground />
         <HeroBrandTypography />
         <LandingNavbar onInfo={onInfo} />
-        <HeroContent onInfo={onInfo} />
+        <HeroContent />
       </section>
+      <LandingBody />
       <LandingFooter onInfo={onInfo} />
       <dialog className="hv-info-dialog" ref={dialogRef} aria-labelledby="hv-dialog-title" aria-describedby="hv-dialog-description" onClose={() => {
         const trigger = triggerRef.current;
