@@ -35,8 +35,6 @@
                     "apps/**/*.ts",
                     "apps/**/*.tsx",
                     "packages/core/src/**/*.ts",
-                    "tests/**/*.ts",
-                    "scripts/**/*.ts",
                     "*.mts"
                 ],
     "exclude":  [
