@@ -1,7 +1,1 @@
-import { z } from "zod";
-import { currentUser } from "@core/lib/auth";
-import { db } from "@core/lib/db";
-import { fail, ok } from "@core/lib/http";
-import { NextRequest, NextResponse } from "next/server";
-const schema=z.object({name:z.string().trim().min(2).max(80).optional(),annualAllowance:z.number().min(0).max(366).nullable().optional(),active:z.boolean().optional()}).strict();
-export async function PATCH(request:NextRequest,{params}:{params:Promise<{id:string}>}){try{const actor=await currentUser();if(!actor)return NextResponse.json({error:{code:"UNAUTHENTICATED",message:"Sign in to continue."}},{status:401});if(!actor.roles.some(role=>["OWNER","HR"].includes(role)))return NextResponse.json({error:{code:"FORBIDDEN",message:"Only Owner or HR can manage leave policies."}},{status:403});const {id}=await params;const input=schema.parse(await request.json());if(!Object.keys(input).length)return NextResponse.json({error:{code:"VALIDATION_ERROR",message:"Provide fields to update."}},{status:422});if(!await db.leaveType.findUnique({where:{id}}))return NextResponse.json({error:{code:"NOT_FOUND",message:"Leave type not found."}},{status:404});const item=await db.$transaction(async tx=>{const updated=await tx.leaveType.update({where:{id},data:input});await tx.auditLog.create({data:{actorId:actor.id,action:"leave_type.updated",resourceType:"leave_type",resourceId:id}});return updated;});return ok(item);}catch(error){return fail(error);}}
+export { PATCH } from "@core/http/routes/v1/leave/types/[id]/route";

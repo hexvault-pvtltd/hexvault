@@ -1,9 +1,1 @@
-import { z } from "zod";
-import { currentUser } from "@core/lib/auth";
-import { db } from "@core/lib/db";
-import { fail,ok } from "@core/lib/http";
-import { visibleEmployeeIds } from "@core/lib/scope";
-import { NextRequest,NextResponse } from "next/server";
-const schema=z.object({assignedTo:z.string().uuid().nullable().optional(),dueAt:z.coerce.date().nullable().optional()});
-export async function GET(_request:Request,{params}:{params:Promise<{id:string}>}){const actor=await currentUser();if(!actor)return NextResponse.json({error:{code:"UNAUTHENTICATED",message:"Sign in to continue."}},{status:401});const {id}=await params;const item=await db.onboardingCase.findUnique({where:{id},include:{employee:true,items:true}});if(!item)return NextResponse.json({error:{code:"NOT_FOUND",message:"Onboarding case not found."}},{status:404});const visible=await visibleEmployeeIds(actor);if(visible!==null&&!visible.includes(item.employeeId))return NextResponse.json({error:{code:"FORBIDDEN",message:"Case is outside your scope."}},{status:403});return ok(item);}
-export async function PATCH(request:NextRequest,{params}:{params:Promise<{id:string}>}){try{const actor=await currentUser();if(!actor)return NextResponse.json({error:{code:"UNAUTHENTICATED",message:"Sign in to continue."}},{status:401});if(!actor.roles.some(r=>["OWNER","HR"].includes(r)))return NextResponse.json({error:{code:"FORBIDDEN",message:"You do not have access to update onboarding cases."}},{status:403});const {id}=await params;const changes=schema.parse(await request.json());const current=await db.onboardingCase.findUnique({where:{id},select:{employeeId:true,status:true}});if(!current)return NextResponse.json({error:{code:"NOT_FOUND",message:"Onboarding case not found."}},{status:404});if(current.status==="COMPLETE")return NextResponse.json({error:{code:"CONFLICT",message:"Completed cases are immutable."}},{status:409});return ok(await db.onboardingCase.update({where:{id},data:changes}));}catch(error){return fail(error);}}
+export { GET, PATCH } from "@core/features/onboarding/routes/onboarding/[id]/route";

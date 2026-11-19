@@ -1,9 +1,1 @@
-import { z } from "zod";
-import { currentUser } from "@core/lib/auth";
-import { db } from "@core/lib/db";
-import { fail,ok } from "@core/lib/http";
-import { visibleEmployeeIds } from "@core/lib/scope";
-import { NextRequest,NextResponse } from "next/server";
-const schema=z.object({name:z.string().min(2).max(100),code:z.string().min(2).max(20),headEmployeeId:z.string().uuid().optional()});
-export async function GET(){const actor=await currentUser();if(!actor)return NextResponse.json({error:{code:"UNAUTHENTICATED",message:"Sign in to continue."}},{status:401});const visible=await visibleEmployeeIds(actor);const items=await db.department.findMany({where:visible===null?{}:{OR:[{employees:{some:{id:{in:visible}}}},{headEmployeeId:actor.employee?.id}]},include:{head:{select:{id:true,fullName:true}},_count:{select:{employees:true,teams:true}}},orderBy:{name:"asc"}});return ok({items,total:items.length});}
-export async function POST(request:NextRequest){try{const actor=await currentUser();if(!actor)return NextResponse.json({error:{code:"UNAUTHENTICATED",message:"Sign in to continue."}},{status:401});if(!actor.roles.some(r=>["OWNER","HR"].includes(r)))return NextResponse.json({error:{code:"FORBIDDEN",message:"You do not have access to create departments."}},{status:403});const input=schema.parse(await request.json());if(input.headEmployeeId&&!await db.employee.findUnique({where:{id:input.headEmployeeId},select:{id:true}}))return NextResponse.json({error:{code:"NOT_FOUND",message:"Department head employee not found."}},{status:404});const item=await db.$transaction(async tx=>{const department=await tx.department.create({data:{...input,headEmployeeId:input.headEmployeeId??null}});if(input.headEmployeeId)await tx.employee.update({where:{id:input.headEmployeeId},data:{departmentId:department.id}});await tx.auditLog.create({data:{actorId:actor.id,action:"department.created",resourceType:"department",resourceId:department.id}});return department;});return ok(item,201);}catch(error){return fail(error);}}
+export { GET, POST } from "@core/features/organization/routes/departments/route";
