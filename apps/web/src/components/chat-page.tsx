@@ -50,6 +50,9 @@ export function ChatPage({ selfId, roles }: { selfId: string; roles: string[] })
   const [callAction, setCallAction] = useState<"start" | "join" | null>(null);
   const [selectedEmoji, setSelectedEmoji] = useState("👍");
   const [loading, setLoading] = useState(true);
+  const [membersError, setMembersError] = useState("");
+  const [conversationsError, setConversationsError] = useState("");
+  const [reloadSidebar, setReloadSidebar] = useState(0);
   const endRef = useRef<HTMLDivElement>(null);
   const recorderRef = useRef<MediaRecorder | null>(null);
   const mediaStreamRef = useRef<MediaStream | null>(null);
@@ -68,21 +71,30 @@ export function ChatPage({ selfId, roles }: { selfId: string; roles: string[] })
   const refreshConversations = useCallback(async () => {
     const data = await requestJson("/api/v1/chat/conversations");
     setConversations(data.items);
+    setConversationsError("");
   }, []);
 
   useEffect(() => {
     let active = true;
     async function load() {
-      try {
-        const results = await Promise.all([requestJson("/api/v1/chat/members"), requestJson("/api/v1/chat/conversations")]);
-        if (active) { setMembers(results[0].items); setConversations(results[1].items); }
-      } catch (cause) { if (active) setError(cause instanceof Error ? cause.message : "Unable to load chat."); }
-      finally { if (active) setLoading(false); }
+      // A conversations failure must not discard a successful member directory.
+      await Promise.all([
+        requestJson("/api/v1/chat/members").then(data => {
+          if (active) { setMembers(data.items); setMembersError(""); }
+        }).catch(() => {
+          if (active) setMembersError("Unable to load workspace members. Please try again.");
+        }).finally(() => { if (active) setLoading(false); }),
+        requestJson("/api/v1/chat/conversations").then(data => {
+          if (active) { setConversations(data.items); setConversationsError(""); }
+        }).catch(() => {
+          if (active) setConversationsError("Unable to load recent conversations. Please try again.");
+        }),
+      ]);
     }
     void load();
     const timer = window.setInterval(() => { void refreshConversations().catch(() => {}); }, 6000);
     return () => { active = false; window.clearInterval(timer); };
-  }, [refreshConversations]);
+  }, [refreshConversations, reloadSidebar]);
 
   useEffect(() => {
     if (!conversationId) return;
@@ -279,10 +291,12 @@ export function ChatPage({ selfId, roles }: { selfId: string; roles: string[] })
         <div className="border-b border-[var(--border)] p-4"><div className="flex items-center justify-between"><h2 className="text-sm font-semibold">Messages</h2><button onClick={() => { setNewGroup(true); setGroupName(""); setGroupDescription(""); setGroupMemberIds([]); setError(""); }} className="inline-flex h-8 items-center gap-1 rounded-lg bg-[#171717] px-2.5 text-[10px] font-semibold text-white"><Plus size={13}/>New group</button></div><label className="mt-3 flex h-9 items-center gap-2 rounded-lg border border-[var(--border)] bg-[#fafafa] px-2.5"><Search size={14} className="text-[#888]"/><input aria-label="Search members" value={search} onChange={event => setSearch(event.target.value)} placeholder="Search people" className="min-w-0 flex-1 bg-transparent text-xs outline-none"/></label></div>
         <div className="min-h-0 flex-1 overflow-y-auto p-2">
           <p className="px-3 pb-1 pt-2 text-[9px] font-semibold uppercase tracking-[.13em] text-[#999]">Recent conversations</p>
+          {conversationsError && <div role="alert" className="m-2 rounded-lg bg-rose-50 p-3 text-xs text-rose-700"><p>{conversationsError}</p><button className="mt-2 font-semibold underline" onClick={() => setReloadSidebar(value => value + 1)}>Retry loading conversations</button></div>}
           {conversations.map(item => <button key={item.id} onClick={() => selectConversation(item)} className={"mb-1 flex w-full items-center gap-3 rounded-xl p-3 text-left " + (conversationId === item.id ? "bg-[#f1f1f1]" : "hover:bg-[#f7f7f7]")}><span className="grid h-10 w-10 shrink-0 place-items-center rounded-full bg-[#f5eee9] text-[#cf4b20]">{item.kind === "GROUP" ? <Users size={16}/> : initials(item.peer?.fullName ?? "H")}</span><span className="min-w-0 flex-1"><b className="block truncate text-xs">{item.kind === "GROUP" ? item.name : item.peer?.fullName}</b><span className="mt-1 block truncate text-[10px] text-[#888]">{compact(item)}</span></span>{item.activeCall && <Phone size={13} className="text-emerald-600"/>}</button>)}
           <p className="px-3 pb-1 pt-4 text-[9px] font-semibold uppercase tracking-[.13em] text-[#999]">Workspace members</p>
           {loading ? <p className="py-8 text-center text-xs text-[#888]">Loading members…</p> : shownMembers.map(item => <button key={item.userId} onClick={() => void openMember(item)} disabled={busy} className={"mb-1 flex w-full items-center gap-3 rounded-xl p-3 text-left hover:bg-[#f7f7f7] " + (selectedUserId === item.userId ? "bg-[#f1f1f1]" : "")}><span className="grid h-10 w-10 place-items-center rounded-full bg-[#ededed] text-[11px] font-semibold">{initials(item.fullName)}</span><span className="min-w-0 flex-1"><b className="block truncate text-xs">{item.fullName}</b><span className="mt-1 block truncate text-[10px] text-[#888]">{item.title ?? item.employeeCode}</span></span></button>)}
-          {!loading && !shownMembers.length && <p className="py-8 text-center text-xs text-[#888]">{search ? "No matches." : "No active members."}</p>}
+          {!loading && membersError && <div role="alert" className="m-2 rounded-lg bg-rose-50 p-3 text-xs text-rose-700"><p>{membersError}</p><button className="mt-2 font-semibold underline" onClick={() => { setLoading(true); setMembersError(""); setReloadSidebar(value => value + 1); }}>Retry loading members</button></div>}
+          {!loading && !membersError && !shownMembers.length && <p className="py-8 text-center text-xs text-[#888]">{search ? "No matches." : "No active members."}</p>}
         </div>
       </aside>
       <div className={(selectedUserId ? "flex" : "hidden md:flex") + " min-w-0 flex-1 flex-col"}>
