@@ -1,4 +1,4 @@
-import { DeleteObjectCommand, GetObjectCommand, HeadObjectCommand, S3Client } from "@aws-sdk/client-s3";
+import { DeleteObjectCommand, GetObjectCommand, HeadObjectCommand, PutObjectCommand, S3Client } from "@aws-sdk/client-s3";
 import { createPresignedPost } from "@aws-sdk/s3-presigned-post";
 import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
 import { createConnection, Socket } from "node:net";
@@ -100,4 +100,9 @@ export async function createPrivateDownload(key: string, filename: string, mode:
 export async function deletePrivateObject(key: string) {
   const { bucket } = storageConfig();
   await client().send(new DeleteObjectCommand({ Bucket: bucket, Key: key }));
+}
+
+export async function writePrivateObject(key: string, bytes: Buffer, contentType: string) {
+  const { bucket } = storageConfig();
+  await client().send(new PutObjectCommand({ Bucket: bucket, Key: key, Body: bytes, ContentType: contentType }));
 }
