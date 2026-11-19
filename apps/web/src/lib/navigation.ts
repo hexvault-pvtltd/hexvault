@@ -9,6 +9,7 @@ const MANAGEMENT = ["OWNER", "HR", "DEPARTMENT_HEAD", "TEAM_LEAD"];
 
 const navigation: NavGroup[] = [
   { title: "Overview", icon: LayoutDashboard, links: [["Dashboard", "/dashboard", LayoutDashboard], ["Notifications", "/notifications", Bell]] },
+  { title: "Personal", icon: Users, links: [["My goals", "/my-goals", ClipboardList], ["My account", "/account", Users]] },
   { title: "Work & collaboration", icon: BriefcaseBusiness, links: [], sections: [
     { title: "Daily work", links: [["Chat", "/chat", MessageCircle], ["Tasks", "/tasks", ClipboardList], ["Work journal", "/work-logs/my-journal", FileText]] },
     { title: "Projects", links: [["All projects", "/projects", BriefcaseBusiness], ["Create project", "/projects/new", BriefcaseBusiness]] },

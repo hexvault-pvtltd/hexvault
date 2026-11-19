@@ -2,39 +2,38 @@
 
 import { FormEvent, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
+import { DepartmentTeamFields } from "@/components/department-team-fields";
 
-type Employee = { id: string; employeeCode: string; fullName: string; workEmail: string; title: string | null; phone: string | null; department: { id: string; name: string } | null };
-type Department = { id: string; name: string; active: boolean };
+type Employee = { id: string; employeeCode: string; fullName: string; workEmail: string; title: string | null; phone: string | null; department: { id: string; name: string } | null; memberships: { team: { id: string } }[] };
+
 
 export function EmployeeEditForm({ employeeId }: { employeeId: string }) {
   const router = useRouter();
   const [employee, setEmployee] = useState<Employee | null>(null);
-  const [departments, setDepartments] = useState<Department[]>([]);
+  const [organizationReady, setOrganizationReady] = useState(false);
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
 
   useEffect(() => {
     let active = true;
-    Promise.all([fetch(`/api/v1/employees/${employeeId}`), fetch("/api/v1/departments")]).then(async ([employeeResponse, departmentResponse]) => {
-      const employeeBody = await employeeResponse.json();
-      const departmentBody = await departmentResponse.json();
-      if (!active) return;
-      if (!employeeResponse.ok) throw new Error(employeeBody.error?.message ?? "Unable to load employee record.");
-      if (!departmentResponse.ok) throw new Error(departmentBody.error?.message ?? "Unable to load departments.");
-      setEmployee(employeeBody.data);
-      setDepartments(departmentBody.data.items);
+    fetch(`/api/v1/employees/${employeeId}`, { cache: "no-store" }).then(async response => {
+      const body = await response.json().catch(() => null);
+      if (!response.ok) throw new Error(body?.error?.message ?? "Unable to load employee record.");
+      if (active) setEmployee(body.data);
     }).catch(cause => { if (active) setError(cause instanceof Error ? cause.message : "Unable to load employee record."); });
     return () => { active = false; };
   }, [employeeId]);
 
   async function save(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
+    if (busy || !organizationReady) return;
     setBusy(true); setError("");
-    const values = Object.fromEntries(new FormData(event.currentTarget));
+    const fields = new FormData(event.currentTarget);
+    const values = Object.fromEntries(fields);
     try {
       const response = await fetch(`/api/v1/employees/${employeeId}`, {
         method: "PATCH", headers: { "content-type": "application/json" },
-        body: JSON.stringify({ fullName: values.fullName, workEmail: values.workEmail, title: values.title || null, phone: values.phone || null, departmentId: values.departmentId || null }),
+        body: JSON.stringify({ fullName: values.fullName, workEmail: values.workEmail, title: values.title || null, phone: values.phone || null, departmentId: values.departmentId || null, teamIds: fields.getAll("teamIds") }),
       });
       const body = await response.json();
       if (!response.ok) throw new Error(body.error?.message ?? "Unable to save employee changes.");
@@ -52,9 +51,9 @@ export function EmployeeEditForm({ employeeId }: { employeeId: string }) {
         <label className="block text-xs font-semibold">Job title<input name="title" maxLength={120} defaultValue={employee.title ?? ""} className="mt-2 block h-10 w-full rounded-lg border border-slate-200 px-3 text-sm" /></label>
         <label className="block text-xs font-semibold">WhatsApp number<input type="tel" name="phone" maxLength={40} placeholder="+91 98765 43210" defaultValue={employee.phone ?? ""} className="mt-2 block h-10 w-full rounded-lg border border-slate-200 px-3 text-sm" /></label>
       </div>
-      <label className="block text-xs font-semibold">Department<select name="departmentId" defaultValue={employee.department?.id ?? ""} className="mt-2 block h-10 w-full rounded-lg border border-slate-200 bg-white px-3 text-sm"><option value="">Unassigned</option>{departments.map(department => <option key={department.id} value={department.id}>{department.name}{department.active ? "" : " (inactive)"}</option>)}</select></label>
+      <DepartmentTeamFields initialDepartmentId={employee.department?.id ?? ""} initialTeamIds={employee.memberships.map(item => item.team.id)} disabled={busy} onReadyChange={setOrganizationReady}/>
       {error && <p role="alert" className="text-xs text-rose-600">{error}</p>}
-      <div className="flex gap-2"><button disabled={busy} className="rounded-lg bg-[#f46327] px-4 py-2.5 text-xs font-semibold text-white disabled:opacity-50">{busy ? "Saving…" : "Save changes"}</button><button type="button" onClick={() => router.push(`/workforce/${employeeId}`)} className="rounded-lg border border-slate-200 px-4 py-2.5 text-xs font-semibold">Cancel</button></div>
+      <div className="flex gap-2"><button disabled={busy || !organizationReady} className="rounded-lg bg-[#f46327] px-4 py-2.5 text-xs font-semibold text-white disabled:opacity-50">{busy ? "Saving…" : "Save changes"}</button><button type="button" onClick={() => router.push(`/workforce/${employeeId}`)} className="rounded-lg border border-slate-200 px-4 py-2.5 text-xs font-semibold">Cancel</button></div>
     </form>
   </div>;
 }
