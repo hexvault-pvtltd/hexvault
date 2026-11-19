@@ -5,68 +5,9 @@ import Image from "next/image";
 import { NavigationPending } from "./navigation-pending";
 import { usePathname } from "next/navigation";
 import { useEffect, useRef, useState, type KeyboardEvent as ReactKeyboardEvent } from "react";
-import {
-  Activity, Bell, BriefcaseBusiness, Building2, CalendarDays, ChevronDown, Cloud,
-  ClipboardList, DatabaseBackup, FileText, LayoutDashboard, LogOut, Menu, MessageCircle,
-  HardDrive, Search, Settings2, ShieldCheck, Users, WalletCards, X,
-} from "lucide-react";
+import { Bell, ChevronDown, LogOut, Menu, Search, X } from "lucide-react";
+import { groupLinks, navigationForRoles, type NavLink } from "@/lib/navigation";
 
-type IconComponent = typeof LayoutDashboard;
-type NavLink = readonly [label: string, href: string, icon: IconComponent];
-type NavSection = { title: string; links: NavLink[] };
-type NavGroup = { title: string; links: NavLink[]; icon?: IconComponent; sections?: NavSection[] };
-const OWNER_HR = ["OWNER", "HR"];
-const MANAGEMENT = ["OWNER", "DEPARTMENT_HEAD", "HR", "TEAM_LEAD"];
-const navigation: NavGroup[] = [
-  { title: "Overview", links: [["Dashboard", "/dashboard", LayoutDashboard]] },
-  { title: "My workspace", links: [["Chat", "/chat", MessageCircle], ["Attendance", "/attendance", CalendarDays], ["Corrections", "/attendance/corrections", CalendarDays], ["Leave", "/leave", WalletCards], ["Tasks", "/tasks", ClipboardList], ["Work journal", "/work-logs/my-journal", FileText], ["Notifications", "/notifications", Bell]] },
-  { title: "Team & projects", links: [["Projects", "/projects", BriefcaseBusiness], ["Performance", "/performance", Activity]] },
-  { title: "People", links: [["Workforce", "/workforce", Users], ["Organization chart", "/organization-chart", Building2], ["Teams", "/teams", Users], ["Departments", "/departments", Building2], ["Former members", "/former-members", Users]] },
-  { title: "HR & hiring", links: [["Onboarding", "/hr/onboarding", BriefcaseBusiness], ["Offboarding", "/hr/offboarding", BriefcaseBusiness], ["Documents", "/hr/documents", FileText], ["Job postings", "/hr/jobs", BriefcaseBusiness]] },
-  { title: "Scheduling & policies", links: [["Shifts", "/shifts", CalendarDays], ["Shift assignments", "/shifts/assignments", CalendarDays], ["Holidays", "/holidays", CalendarDays], ["Leave policies", "/leave/policies", WalletCards]] },
-  { title: "Administration", links: [["Website products", "/settings/products", BriefcaseBusiness], ["CDN files", "/cdn", Cloud], ["Storage", "/settings/storage", HardDrive], ["Backups", "/backups", DatabaseBackup], ["Audit log", "/security/audit-logs", Activity], ["Settings", "/settings", Settings2]] },
-];
-const ownerNavigation: NavGroup[] = [
-  { title: "Overview", icon: LayoutDashboard, links: [["Dashboard", "/dashboard", LayoutDashboard], ["Notifications", "/notifications", Bell]] },
-  { title: "Work & collaboration", icon: BriefcaseBusiness, links: [], sections: [
-    { title: "Daily work", links: [["Chat", "/chat", MessageCircle], ["Tasks", "/tasks", ClipboardList], ["Work journal", "/work-logs/my-journal", FileText]] },
-    { title: "Projects", links: [["All projects", "/projects", BriefcaseBusiness], ["Create project", "/projects/new", BriefcaseBusiness]] },
-    { title: "Performance", links: [["Overview", "/performance", Activity], ["Goals", "/performance/goals", ClipboardList], ["Reviews", "/performance/reviews", FileText]] },
-  ] },
-  { title: "People & organization", icon: Users, links: [], sections: [
-    { title: "Workforce", links: [["Employees", "/workforce", Users], ["Add employee", "/workforce/new", Users], ["Former members", "/former-members", Users]] },
-    { title: "Company structure", links: [["Organization chart", "/organization-chart", Building2], ["Departments", "/departments", Building2], ["Teams", "/teams", Users]] },
-  ] },
-  { title: "HR & hiring", icon: FileText, links: [], sections: [
-    { title: "Recruitment", links: [["Job postings", "/hr/jobs", BriefcaseBusiness]] },
-    { title: "Employee lifecycle", links: [["Onboarding", "/hr/onboarding", BriefcaseBusiness], ["Offboarding", "/hr/offboarding", BriefcaseBusiness]] },
-    { title: "Records", links: [["Employee documents", "/hr/documents", FileText]] },
-  ] },
-  { title: "Attendance & leave", icon: CalendarDays, links: [], sections: [
-    { title: "Attendance", links: [["Attendance", "/attendance", CalendarDays], ["Corrections", "/attendance/corrections", CalendarDays]] },
-    { title: "Scheduling", links: [["Shifts", "/shifts", CalendarDays], ["Shift assignments", "/shifts/assignments", CalendarDays], ["Holidays", "/holidays", CalendarDays]] },
-    { title: "Leave", links: [["Leave requests", "/leave", WalletCards], ["Leave policies", "/leave/policies", WalletCards]] },
-  ] },
-  { title: "Website & data", icon: HardDrive, links: [], sections: [
-    { title: "Website", links: [["Products", "/settings/products", BriefcaseBusiness]] },
-    { title: "Files & storage", links: [["CDN files", "/cdn", Cloud], ["Storage optimization", "/settings/storage", HardDrive]] },
-    { title: "Backup & recovery", links: [["Backups", "/backups", DatabaseBackup]] },
-  ] },
-  { title: "Security & settings", icon: ShieldCheck, links: [], sections: [
-    { title: "Security", links: [["Audit log", "/security/audit-logs", Activity], ["Active sessions", "/security/sessions", ShieldCheck]] },
-    { title: "Settings", links: [["Company settings", "/settings", Settings2], ["My account", "/account", Users]] },
-  ] },
-];
-function groupLinks(group: NavGroup) {
-  return [...group.links, ...(group.sections ?? []).flatMap(section => section.links)];
-}
-function allowed(href: string, roles: string[]) {
-  if (["/former-members", "/organization-chart", "/departments", "/teams"].includes(href)) return MANAGEMENT.some((role) => roles.includes(role));
-  if (["/shifts", "/shifts/assignments", "/holidays", "/leave/policies", "/hr/documents", "/hr/jobs"].includes(href)) return OWNER_HR.some((role) => roles.includes(role));
-  if (["/hr/onboarding", "/hr/offboarding"].includes(href)) return MANAGEMENT.some((role) => roles.includes(role));
-  if (href === "/settings/storage" || href === "/backups" || href === "/security/audit-logs" || href === "/settings" || href === "/settings/products") return roles.includes("OWNER");
-  return true;
-}
 function isActive(path: string, href: string, links: NavLink[]) {
   if (path === href) return true;
   if (!path.startsWith(`${href}/`)) return false;
@@ -87,11 +28,7 @@ function trapDialogFocus(event: ReactKeyboardEvent<HTMLElement>) {
 
 export function Workspace({ children, name, role, roles }: { children: React.ReactNode; name: string; role: string; roles: string[] }) {
   const pathname = usePathname();
-  const isOwner = roles.includes("OWNER");
-  const visibleGroups = (isOwner ? ownerNavigation : navigation).map((group) => ({ ...group,
-    links: group.links.filter(([, href]) => allowed(href, roles)),
-    sections: group.sections?.map(section => ({ ...section, links: section.links.filter(([, href]) => allowed(href, roles)) })).filter(section => section.links.length > 0),
-  })).filter((group) => groupLinks(group).length > 0);
+  const visibleGroups = navigationForRoles(roles);
   const visibleLinks = visibleGroups.flatMap(groupLinks);
   const currentGroup = visibleGroups.find((group) => groupLinks(group).some(([, href]) => isActive(pathname, href, visibleLinks)))?.title ?? "Overview";
   const currentPageLabel = visibleLinks.filter(([, href]) => isActive(pathname, href, visibleLinks)).sort((a, b) => b[1].length - a[1].length)[0]?.[0] ?? "Dashboard";
