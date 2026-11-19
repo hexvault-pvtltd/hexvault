@@ -3,6 +3,7 @@ import { z } from "zod";
 import { currentUser } from "@core/lib/auth";
 import { db } from "@core/lib/db";
 import { canUploadToCdnFolder } from "@core/features/cdn/permissions";
+import { finalizeScannedFile } from "@core/features/files/finalize";
 import { MalwareScannerUnavailableError, MAX_CDN_UPLOAD_BYTES, readPrivateObject, scanWithClamAv, StorageConfigurationError } from "@core/lib/storage";
 import { fail } from "@core/lib/http";
 import { NextRequest, NextResponse } from "next/server";
@@ -44,15 +45,7 @@ export async function POST(request: NextRequest) {
       await db.auditLog.create({ data: { actorId: actor.id, action: "cdn.malware_detected", resourceType: "cdn_asset", resourceId: asset.id } });
       return NextResponse.json({ error: { code: "UNPROCESSABLE_FILE", message: "The file was rejected by malware scanning." } }, { status: 422 });
     }
-    const clean = await db.$transaction(async tx => {
-      const updated = await tx.file.updateMany({ where: { id: asset.file.id, scanStatus: { in: ["PENDING", "QUARANTINED"] } }, data: { scanStatus: "CLEAN", checksum: digest } });
-      if (!updated.count) {
-        const latest = await tx.file.findUniqueOrThrow({ where: { id: asset.file.id } });
-        if (latest.scanStatus !== "CLEAN") throw new Error("UPLOAD_STATE_CHANGED");
-      }
-      await tx.auditLog.create({ data: { actorId: actor.id, action: "cdn.upload_scanned", resourceType: "cdn_asset", resourceId: asset.id } });
-      return tx.file.findUniqueOrThrow({ where: { id: asset.file.id } });
-    });
+    const clean = await finalizeScannedFile(asset.file, object.bytes, actor.id, "cdn.upload_scanned", "cdn_asset", asset.id);
     return NextResponse.json({ data: { fileId: clean.id, assetId: asset.id, scanStatus: clean.scanStatus, checksum: clean.checksum, sizeBytes: Number(clean.sizeBytes) } });
   } catch (error) {
     if (error instanceof z.ZodError) return NextResponse.json({ error: { code: "VALIDATION_ERROR", message: "Check the upload completion fields." } }, { status: 422 });

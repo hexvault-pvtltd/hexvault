@@ -50,9 +50,9 @@ async function capture(tx: Prisma.TransactionClient, kind: string, actorId?: str
     validateBackup(envelope);
     const bytes = Buffer.from(JSON.stringify(envelope));
     if (bytes.length > MAX_BACKUP_BYTES) throw new BackupError(413, "This backup exceeds the 100 MB JSON limit.");
-    await writePrivateObject(objectKey, bytes, "application/json");
+    const stored = await writePrivateObject(objectKey, bytes, "application/json");
     const recordCount = Object.values(payload.tables).reduce((sum, rows) => sum + rows.length, 0);
-    return await db.backupArchive.update({ where: { id }, data: { status: "COMPLETED", sizeBytes: bytes.length, recordCount, fileCount: payload.files.filter(file => file.base64 !== null).length, checksum: digest(bytes), completedAt: new Date() }, select: archiveSelect });
+    return await db.backupArchive.update({ where: { id }, data: { status: "COMPLETED", sizeBytes: stored.storedBytes, recordCount, fileCount: payload.files.filter(file => file.base64 !== null).length, checksum: digest(bytes), completedAt: new Date() }, select: archiveSelect });
   } catch (error) {
     await db.backupArchive.update({ where: { id }, data: { status: "FAILED", error: error instanceof BackupError ? error.message : "Backup failed. Check database and private storage availability.", completedAt: new Date() } });
     throw error;

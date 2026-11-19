@@ -8,7 +8,7 @@ import { useEffect, useRef, useState, type KeyboardEvent as ReactKeyboardEvent }
 import {
   Activity, Bell, BriefcaseBusiness, Building2, CalendarDays, ChevronDown, Cloud,
   ClipboardList, DatabaseBackup, FileText, LayoutDashboard, LogOut, Menu, MessageCircle,
-  Search, Settings2, Users, WalletCards, X,
+  HardDrive, Search, Settings2, Users, WalletCards, X,
 } from "lucide-react";
 
 type IconComponent = typeof LayoutDashboard;
@@ -23,13 +23,13 @@ const navigation: NavGroup[] = [
   { title: "People", links: [["Workforce", "/workforce", Users], ["Organization chart", "/organization-chart", Building2], ["Teams", "/teams", Users], ["Departments", "/departments", Building2], ["Former members", "/former-members", Users]] },
   { title: "HR & hiring", links: [["Onboarding", "/hr/onboarding", BriefcaseBusiness], ["Offboarding", "/hr/offboarding", BriefcaseBusiness], ["Documents", "/hr/documents", FileText], ["Job postings", "/hr/jobs", BriefcaseBusiness]] },
   { title: "Scheduling & policies", links: [["Shifts", "/shifts", CalendarDays], ["Shift assignments", "/shifts/assignments", CalendarDays], ["Holidays", "/holidays", CalendarDays], ["Leave policies", "/leave/policies", WalletCards]] },
-  { title: "Administration", links: [["Website products", "/settings/products", BriefcaseBusiness], ["CDN files", "/cdn", Cloud], ["Backups", "/backups", DatabaseBackup], ["Audit log", "/security/audit-logs", Activity], ["Settings", "/settings", Settings2]] },
+  { title: "Administration", links: [["Website products", "/settings/products", BriefcaseBusiness], ["CDN files", "/cdn", Cloud], ["Storage", "/settings/storage", HardDrive], ["Backups", "/backups", DatabaseBackup], ["Audit log", "/security/audit-logs", Activity], ["Settings", "/settings", Settings2]] },
 ];
 function allowed(href: string, roles: string[]) {
   if (["/former-members", "/organization-chart", "/departments", "/teams"].includes(href)) return MANAGEMENT.some((role) => roles.includes(role));
   if (["/shifts", "/shifts/assignments", "/holidays", "/leave/policies", "/hr/documents", "/hr/jobs"].includes(href)) return OWNER_HR.some((role) => roles.includes(role));
   if (["/hr/onboarding", "/hr/offboarding"].includes(href)) return MANAGEMENT.some((role) => roles.includes(role));
-  if (href === "/backups" || href === "/security/audit-logs" || href === "/settings" || href === "/settings/products") return roles.includes("OWNER");
+  if (href === "/settings/storage" || href === "/backups" || href === "/security/audit-logs" || href === "/settings" || href === "/settings/products") return roles.includes("OWNER");
   return true;
 }
 function isActive(path: string, href: string) {

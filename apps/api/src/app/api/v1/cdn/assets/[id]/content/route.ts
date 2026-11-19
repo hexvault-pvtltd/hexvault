@@ -33,7 +33,7 @@ export async function GET(_request: Request, { params }: Context) {
       "Cache-Control": asset.isPublic ? "public, max-age=60, s-maxage=60, stale-while-revalidate=30" : "private, no-store",
     });
     if (asset.file.checksum) headers.set("ETag", `"${asset.file.checksum}"`);
-    return new Response(object.bytes, { status: 200, headers });
+    return new Response(new Uint8Array(object.bytes), { status: 200, headers });
   } catch (error) {
     if (error instanceof Error && (error.message === "NotFound" || error.message === "INVALID_OBJECT_SIZE")) return NextResponse.json({ error: { code: "NOT_FOUND", message: "CDN file not found." } }, { status: 404 });
     console.error("cdn_content_read_failed", error instanceof Error ? error.name : "unknown");

@@ -2,6 +2,7 @@ import { DeleteObjectCommand, GetObjectCommand, HeadObjectCommand, PutObjectComm
 import { createPresignedPost } from "@aws-sdk/s3-presigned-post";
 import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
 import { createConnection, Socket } from "node:net";
+import { compressForStorage, decompressStoredObject } from "./compression";
 
 export const MAX_UPLOAD_BYTES = 10 * 1024 * 1024;
 export const MAX_CDN_UPLOAD_BYTES = 50 * 1024 * 1024;
@@ -41,9 +42,11 @@ export async function readPrivateObject(key: string, maxBytes = MAX_UPLOAD_BYTES
   if (head.ContentLength === undefined || head.ContentLength < 1 || head.ContentLength > maxBytes) throw new Error("INVALID_OBJECT_SIZE");
   const result = await client().send(new GetObjectCommand({ Bucket: bucket, Key: key }));
   if (!result.Body) throw new Error("OBJECT_BODY_MISSING");
-  const bytes = Buffer.from(await result.Body.transformToByteArray());
-  if (bytes.length !== head.ContentLength) throw new Error("OBJECT_SIZE_MISMATCH");
-  return { bytes, contentLength: head.ContentLength, contentType: head.ContentType ?? "" };
+  const stored = Buffer.from(await result.Body.transformToByteArray());
+  if (stored.length !== head.ContentLength) throw new Error("OBJECT_SIZE_MISMATCH");
+  const encoding = head.Metadata?.["hv-optimized"] === "1" ? head.ContentEncoding : undefined;
+  const bytes = await decompressStoredObject(stored, encoding, maxBytes, head.Metadata?.["hv-original-bytes"]);
+  return { bytes, contentLength: bytes.length, storedLength: stored.length, optimized: head.Metadata?.["hv-optimized"] === "1", contentType: head.ContentType ?? "" };
 }
 export function hasAllowedSignature(bytes: Uint8Array, mimeType: string) {
   if (mimeType === "application/pdf") return Buffer.from(bytes.subarray(0, 5)).toString("ascii") === "%PDF-";
@@ -94,7 +97,7 @@ export async function scanWithClamAv(bytes: Buffer): Promise<"CLEAN" | "INFECTED
 export async function createPrivateDownload(key: string, filename: string, mode: "attachment" | "inline" = "attachment", expiresInSeconds = 60) {
   const { bucket } = storageConfig();
   const safeFilename = filename.replace(/[\r\n"\\]/g, "_").slice(0, 180) || "document";
-  const disposition = `${mode}; filename="${safeFilename}"`;
+  const disposition = `${mode}; filename="${safeFilename.replace(/[^\x20-\x7e]/g, "_")}"; filename*=UTF-8''${encodeURIComponent(safeFilename)}`;
   return getSignedUrl(signerClient(), new GetObjectCommand({ Bucket: bucket, Key: key, ResponseContentDisposition: disposition }), { expiresIn: Math.min(Math.max(expiresInSeconds, 30), 3600) });
 }
 export async function deletePrivateObject(key: string) {
@@ -104,5 +107,12 @@ export async function deletePrivateObject(key: string) {
 
 export async function writePrivateObject(key: string, bytes: Buffer, contentType: string) {
   const { bucket } = storageConfig();
-  await client().send(new PutObjectCommand({ Bucket: bucket, Key: key, Body: bytes, ContentType: contentType }));
+  // Media players seek using byte ranges. Keep their stored representation
+  // seekable rather than wrapping it in a whole-file compression stream.
+  const encoded = /^(audio|video)\//i.test(contentType)
+    ? { bytes, encoding: undefined, originalBytes: bytes.length }
+    : await compressForStorage(bytes);
+  await client().send(new PutObjectCommand({ Bucket: bucket, Key: key, Body: encoded.bytes, ContentType: contentType,
+    ContentEncoding: encoded.encoding, Metadata: { "hv-optimized": "1", "hv-original-bytes": String(bytes.length) } }));
+  return { originalBytes: bytes.length, storedBytes: encoded.bytes.length, encoding: encoded.encoding ?? "identity" };
 }
