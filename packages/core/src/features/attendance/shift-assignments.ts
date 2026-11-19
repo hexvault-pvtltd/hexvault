@@ -1,11 +1,13 @@
 import { db } from "@core/lib/db";
 
-export async function createShiftAssignment(actorId: string, input: { employeeId: string; shiftId: string; validFrom: Date; validTo?: Date }) {
-  return db.$transaction(async tx => {
+export function shiftRangesOverlap(first: { validFrom: Date; validTo?: Date | null }, second: { validFrom: Date; validTo?: Date | null }) {
+  return first.validFrom.getTime() <= (second.validTo?.getTime() ?? Infinity) && second.validFrom.getTime() <= (first.validTo?.getTime() ?? Infinity);
+}
+export async function createShiftAssignment(actorId: string, input: { employeeId: string; shiftId: string; validFrom: Date; validTo?: Date }, database = db) {
+  return database.$transaction(async tx => {
     await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext(${input.employeeId} || ':shift-assignment'))`;
     const assignments = await tx.shiftAssignment.findMany({ where: { employeeId: input.employeeId }, select: { validFrom: true, validTo: true } });
-    const requestedEnd = input.validTo ?? new Date("9999-12-31T00:00:00.000Z");
-    if (assignments.some(item => item.validFrom <= requestedEnd && (item.validTo ?? new Date("9999-12-31T00:00:00.000Z")) >= input.validFrom)) throw new Error("SHIFT_ASSIGNMENT_OVERLAP");
+    if (assignments.some(item => shiftRangesOverlap(item, input))) throw new Error("SHIFT_ASSIGNMENT_OVERLAP");
     const created = await tx.shiftAssignment.create({ data: input });
     await tx.auditLog.create({ data: { actorId, action: "shift.assigned", resourceType: "shift_assignment", resourceId: created.id, metadata: { employeeId: input.employeeId, shiftId: input.shiftId } } });
     return created;

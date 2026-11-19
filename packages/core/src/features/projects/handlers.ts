@@ -4,12 +4,15 @@ import { db } from "@core/lib/db";
 import { fail, ok } from "@core/lib/http";
 import { visibleEmployeeIds } from "@core/lib/scope";
 import { NextRequest, NextResponse } from "next/server";
+import { OrganizationError } from "@core/features/organization/structure";
+import { projectTeamEmployeeIds } from "@core/features/organization/selection";
 
 const schema = z.object({
   code: z.string().trim().min(2).max(32).transform(value => value.toUpperCase()),
   name: z.string().trim().min(2).max(160),
   description: z.string().max(4000).optional(),
   departmentId: z.string().uuid().optional(),
+  teamIds: z.array(z.string().uuid()).max(50).default([]),
   startDate: z.coerce.date().optional(),
   dueDate: z.coerce.date().optional(),
 }).refine(value => !value.startDate || !value.dueDate || value.startDate <= value.dueDate, { path: ["dueDate"], message: "Due date must be on or after the start date." });
@@ -34,8 +37,9 @@ export async function POST(request: NextRequest) {
     const input = schema.parse(await request.json());
     let departmentId = input.departmentId ?? null;
     if (actor.roles.includes("DEPARTMENT_HEAD") && !actor.roles.includes("OWNER")) {
+      if (!actor.employee) return NextResponse.json({ error: { code: "FORBIDDEN", message: "Your account needs an employee profile before creating projects." } }, { status: 403 });
       if (!departmentId) {
-        const assigned = await db.department.findFirst({ where: { headEmployeeId: actor.employee?.id }, select: { id: true } });
+        const assigned = await db.department.findFirst({ where: { headEmployeeId: actor.employee.id, active: true }, select: { id: true } });
         departmentId = assigned?.id ?? null;
       }
       if (!departmentId) return NextResponse.json({ error: { code: "FORBIDDEN", message: "Assign a department before creating projects." } }, { status: 403 });
@@ -43,10 +47,22 @@ export async function POST(request: NextRequest) {
       if (department?.headEmployeeId !== actor.employee?.id) return NextResponse.json({ error: { code: "FORBIDDEN", message: "Department is outside your scope." } }, { status: 403 });
     }
     const project = await db.$transaction(async tx => {
-      const created = await tx.project.create({ data: { ...input, departmentId, ownerEmployeeId: actor.employee?.id ?? null, description: input.description ?? null } });
-      await tx.auditLog.create({ data: { actorId: actor.id, action: "project.created", resourceType: "project", resourceId: created.id } });
+      const { teamIds, ...fields } = input;
+      const members = await projectTeamEmployeeIds(tx, departmentId, teamIds);
+      const created = await tx.project.create({ data: { ...fields, departmentId, ownerEmployeeId: actor.employee?.id ?? null, description: input.description ?? null } });
+      if (teamIds.length) {
+        const ids = [...new Set([...members, ...(actor.employee ? [actor.employee.id] : [])])];
+        if (ids.length) {
+          await tx.projectMembership.createMany({ data: ids.map(employeeId => ({ projectId: created.id, employeeId, projectRole: employeeId === actor.employee?.id ? "LEAD" : "MEMBER" })) });
+          await tx.employeeHistory.createMany({ data: ids.map(employeeId => ({ employeeId, actorId: actor.id, eventType: "PROJECT_ASSIGNED", newData: { projectId: created.id, reason: `Added to project: ${created.name}` } })) });
+        }
+      }
+      await tx.auditLog.create({ data: { actorId: actor.id, action: "project.created", resourceType: "project", resourceId: created.id, metadata: { teamIds, initialTeamMembers: members.length } } });
       return created;
     });
     return ok(project, 201);
-  } catch (error) { return fail(error); }
+  } catch (error) {
+    if (error instanceof OrganizationError) return NextResponse.json({ error: { code: error.code, message: error.message } }, { status: error.status });
+    return fail(error);
+  }
 }

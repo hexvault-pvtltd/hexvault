@@ -21,11 +21,11 @@ export async function GET(request: NextRequest, { params }: Context) {
     const afterAt = cursor.afterAt ? new Date(cursor.afterAt) : participant.joinedAt;
     const [signals, participants] = await Promise.all([
       db.chatVoiceSignal.findMany({ where: { callId, toUserId: actor.id, createdAt: { gte: participant.joinedAt }, ...(cursor.afterId ? { OR: [{ createdAt: { gt: afterAt } }, { createdAt: afterAt, id: { gt: cursor.afterId } }] } : {}) }, orderBy: [{ createdAt: "asc" }, { id: "asc" }], take: 100 }),
-      db.chatVoiceParticipant.findMany({ where: { callId, leftAt: null }, select: { userId: true, user: { select: { employee: { select: { fullName: true } }, email: true } } } }),
+      db.chatVoiceParticipant.findMany({ where: { callId, leftAt: null, lastSeenAt: { gte: new Date(Date.now() - 45_000) } }, select: { userId: true, joinedAt: true, user: { select: { employee: { select: { fullName: true } }, email: true } } } }),
     ]);
     const items = signals.map(signal => ({ id: signal.id, fromUserId: signal.fromUserId, type: signal.type, payload: signal.payload, createdAt: signal.createdAt }));
     const last = items.at(-1);
-    return ok({ callId, participants: participants.map(item => ({ userId: item.userId, name: item.user.employee?.fullName ?? item.user.email })), signals: items, nextCursor: last ? { afterAt: last.createdAt.toISOString(), afterId: last.id } : cursor.afterAt && cursor.afterId ? cursor : null });
+    return ok({ callId, participants: participants.map(item => ({ userId: item.userId, joinedAt: item.joinedAt, name: item.user.employee?.fullName ?? item.user.email })), signals: items, nextCursor: last ? { afterAt: last.createdAt.toISOString(), afterId: last.id } : cursor.afterAt && cursor.afterId ? cursor : null });
   } catch (error) { return fail(error); }
 }
 
