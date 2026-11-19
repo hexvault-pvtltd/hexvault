@@ -8,7 +8,7 @@ import { createParticleField, projectParticle, stepParticle, type Ripple } from 
 
 const COLORS = ["#E14C19", "#FF6A2B", "#FF8A45"];
 
-export default function ParticleCanvas({ config = defaultParticleConfig }: { config?: Partial<ParticleConfig> }) {
+export default function ParticleCanvas({ config = defaultParticleConfig, animated = true }: { config?: Partial<ParticleConfig>; animated?: boolean }) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const pointer = useParticlePointer(canvasRef);
   // Scalar dependencies support inline configuration without restarting animation.
@@ -75,11 +75,14 @@ export default function ParticleCanvas({ config = defaultParticleConfig }: { con
       const elapsed = previous ? (now - previous) / 1000 : 1 / 60;
       const dt = Math.min(1 / 30, elapsed);
       previous = now;
-      if (!motion.matches) time += dt;
+      // Disabling ambient drift keeps the terrain still while pointer attraction
+      // and click ripples continue to animate. Reduced motion disables both.
+      const moving = !motion.matches;
+      if (moving && animated) time += dt;
       const state = pointer.current;
       if (state.pulseId !== pulseId) {
         pulseId = state.pulseId;
-        if (!motion.matches) {
+        if (moving) {
           if (ripples.length === MAX_RIPPLES) ripples.shift();
           ripples.push({ x: state.pulseX, y: state.pulseY, age: 0 });
         }
@@ -91,7 +94,7 @@ export default function ParticleCanvas({ config = defaultParticleConfig }: { con
       context.globalAlpha = 1;
       if (!gpuActive) context.drawImage(atmosphere, 0, 0, width, height);
       state.glow += ((state.active && state.touch ? 1 : 0) - state.glow) * (1 - Math.exp(-dt * 9));
-      if (state.glow > 0.01 && !motion.matches) {
+      if (state.glow > 0.01 && moving) {
         if (gpuActive) gpu!.point(state.x, state.y, 70, state.glow * 0.06, 1);
         else {
           context.globalAlpha = state.glow * 0.16;
@@ -105,7 +108,7 @@ export default function ParticleCanvas({ config = defaultParticleConfig }: { con
         projectParticle(field, index, time, width, height, settings, projected);
         const x = projected[0];
         const y = projected[1];
-        if (!motion.matches && (ripples.length || state.active || field.offsetX[index] || field.offsetY[index])) {
+        if (moving && (ripples.length || state.active || field.offsetX[index] || field.offsetY[index])) {
           stepParticle(field, index, x, y, time, dt, state, ripples, settings);
         }
         const px = x + field.offsetX[index];
@@ -146,7 +149,7 @@ export default function ParticleCanvas({ config = defaultParticleConfig }: { con
         context.globalAlpha = ((bucket % 16) + 0.5) / 16;
         context.fill();
       }
-      if (!motion.matches && visible && !document.hidden) {
+      if (moving && visible && !document.hidden) {
         // Sustained slow delivery reduces fill work without rebuilding arrays.
         samples++;
         if (elapsed > 0.024) slowFrames++;
@@ -247,7 +250,7 @@ export default function ParticleCanvas({ config = defaultParticleConfig }: { con
       document.removeEventListener("visibilitychange", schedule);
       motion.removeEventListener("change", changeMotion);
     };
-  }, [settings, pointer]);
+  }, [settings, pointer, animated]);
 
   return <canvas ref={canvasRef} className="block h-full w-full" />;
 }

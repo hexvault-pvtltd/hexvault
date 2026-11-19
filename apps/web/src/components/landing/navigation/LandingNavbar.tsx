@@ -4,10 +4,10 @@ import Link from "next/link";
 import { Menu, X } from "lucide-react";
 import { useEffect, useRef } from "react";
 import LandingLogo from "../shared/LandingLogo";
-import { landingProducts, type OpenLandingInfo } from "../shared/landingConfig";
+import { landingProducts } from "../shared/landingConfig";
 import NavigationDropdown from "./NavigationDropdown";
 
-function NavigationLinks({ onInfo, onNavigate }: { onInfo: OpenLandingInfo; onNavigate: () => void }) {
+function NavigationLinks({ onNavigate }: { onNavigate: () => void }) {
   return (
     <>
       <NavigationDropdown label="Products">
@@ -16,19 +16,21 @@ function NavigationLinks({ onInfo, onNavigate }: { onInfo: OpenLandingInfo; onNa
           <Link href={product.href} key={product.name} onClick={onNavigate}><strong>{product.name}</strong><span>{product.description}</span></Link>
         )) : null}
       </NavigationDropdown>
-      <a href="#pricing" onClick={onNavigate}>Pricing</a>
+      <Link href="/pricing" onClick={onNavigate}>Pricing</Link>
       <NavigationDropdown label="Resources">
-        <a href="#how-it-works" onClick={onNavigate}>How we work</a>
+        <Link href="/process" onClick={onNavigate}>How we work</Link>
         <Link href="/careers" onClick={onNavigate}>Careers</Link>
-        <button onClick={() => onInfo("support")}>Support</button>
-        <button onClick={() => onInfo("community")}>Community Guidelines</button>
+        <Link href="/documentation" onClick={onNavigate}>Documentation</Link>
+        <Link href="/guides" onClick={onNavigate}>Guides</Link>
+        <Link href="/support" onClick={onNavigate}>Support</Link>
+        <Link href="/community" onClick={onNavigate}>Community Guidelines</Link>
       </NavigationDropdown>
-      <a href="#why-hexvault" onClick={onNavigate}>Why Hexvault</a>
+      <Link href="/about" onClick={onNavigate}>Why Hexvault</Link>
     </>
   );
 }
 
-export default function LandingNavbar({ onInfo }: { onInfo: OpenLandingInfo }) {
+export default function LandingNavbar() {
   const headerRef = useRef<HTMLElement>(null);
   useEffect(() => {
     const close = () => headerRef.current?.querySelectorAll("details[open]").forEach(details => details.removeAttribute("open"));
@@ -61,22 +63,18 @@ export default function LandingNavbar({ onInfo }: { onInfo: OpenLandingInfo }) {
   const closeNavigation = () => {
     headerRef.current?.querySelectorAll("details[open]").forEach(details => details.removeAttribute("open"));
   };
-  const openInfo: OpenLandingInfo = key => {
-    closeNavigation();
-    onInfo(key);
-  };
 
   return (
     <header className="hv-landing-header" ref={headerRef}>
       <nav className="hv-floating-nav" aria-label="Main navigation">
         <Link href="/" className="hv-home" aria-label="HEXVAULT home"><LandingLogo /></Link>
-        <div className="hv-desktop-links"><NavigationLinks onInfo={openInfo} onNavigate={closeNavigation} /></div>
-        <button className="hv-signup" onClick={() => openInfo("signup")}>Sign up for free</button>
+        <div className="hv-desktop-links"><NavigationLinks onNavigate={closeNavigation} /></div>
+        <Link className="hv-signup" href="/signup">Sign up for free</Link>
         <details className="hv-mobile-navigation">
           <summary aria-label="Toggle navigation"><Menu className="hv-menu-icon" size={22} /><X className="hv-close-icon" size={22} /></summary>
           <div className="hv-mobile-panel">
-            <NavigationLinks onInfo={openInfo} onNavigate={closeNavigation} />
-            <button className="hv-signup" onClick={() => openInfo("signup")}>Sign up for free</button>
+            <NavigationLinks onNavigate={closeNavigation} />
+            <Link className="hv-signup" href="/signup" onClick={closeNavigation}>Sign up for free</Link>
           </div>
         </details>
       </nav>

@@ -36,19 +36,36 @@ export default function LandingBody() {
         <div className="hl-service-top"><span>{number} /</span><Icon size={25} strokeWidth={1.5} aria-hidden="true"/></div>
         <div className="hl-service-art" aria-hidden="true">{className === "product" ? <div className="hl-code-art"><span>&lt; build &gt;</span><i/><i/><i/><span>&lt; /together &gt;</span></div> : className === "automation" ? <div className="hl-flow-art"><span><MessageSquare size={22}/></span><i/><span><Sparkles size={26}/></span><i/><span><Check size={22}/></span></div> : <div className="hl-cloud-art"><span/><span/><span/><Cloud size={66} strokeWidth={1}/></div>}</div>
         <h3>{title}</h3><p>{description}</p><ul className="hl-service-tags" aria-label={`${title} services`}>{tags.map(tag => <li key={tag}>{tag}</li>)}</ul>
+        <Link className="hl-text-link" href={className === "product" ? "/product-engineering" : className === "automation" ? "/ai-automation" : "/cloud-engineering"}>Explore service <ArrowUpRight size={17}/></Link>
       </article>)}</div>
-      <Link href="/products" className="hl-text-link">Explore our products <ArrowUpRight size={17}/></Link>
+      <Link href="/services" className="hl-text-link">Explore all services <ArrowUpRight size={17}/></Link>
     </section>
 
     <section className="hl-section hl-collaboration" id="why-hexvault" aria-labelledby="hl-collaboration-title">
       <div className="hl-collaboration-copy"><p className="hl-eyebrow"><span/>WHY HEXVAULT</p><h2 id="hl-collaboration-title">Great software.<br/><span>Built together.</span></h2><p>The work gets better when everyone has the context. Connect your people, projects, and conversations so the next step is clear.</p>
         <ul className="hl-principles"><li><span><Workflow size={18}/></span><div><h3>Keep the work connected</h3><p>Bring tasks, conversations, and project updates into the same workflow.</p></div></li><li><span><ShieldCheck size={18}/></span><div><h3>Give people the right access</h3><p>Clear roles and ownership help teams work with confidence.</p></div></li><li><span><GitBranch size={18}/></span><div><h3>Make progress reviewable</h3><p>Keep decisions and feedback close to the work they shape.</p></div></li></ul>
-        <Link href="/contact" className="hl-text-link">Let&apos;s talk about your team <ArrowUpRight size={17}/></Link>
+        <Link href="/about" className="hl-text-link">More about HEXVAULT <ArrowUpRight size={17}/></Link>
       </div><WorkflowPreview/>
     </section>
 
     <section className="hl-section hl-process" id="how-it-works" aria-labelledby="hl-process-title"><div className="hl-section-heading"><div><p className="hl-eyebrow"><span/>HOW WE WORK</p><h2 id="hl-process-title">Less guesswork.<br/><span>More forward motion.</span></h2></div><p>A clear scope, regular conversations, and working software you can review. Here is how we get there.</p></div>
       <ol className="hl-steps">{steps.map(step => <li key={step.number}><span className="hl-step-number">{step.number}</span><h3>{step.title}</h3><p>{step.text}</p></li>)}</ol>
+      <Link href="/process" className="hl-text-link">Explore our process <ArrowUpRight size={17}/></Link>
+    </section>
+
+    <section className="hl-section" aria-labelledby="hl-explore-title">
+      <div className="hl-section-heading"><div><p className="hl-eyebrow"><span/>EXPLORE HEXVAULT</p><h2 id="hl-explore-title">Everything you need.<br/><span>A clear next step.</span></h2></div><p>Explore our products, plan your project, and find the information your team needs.</p></div>
+      <div className="hl-page-grid">{[
+        { title: "Products", text: "Explore the tools and platforms available from HEXVAULT.", href: "/products" },
+        { title: "Pricing", text: "Understand how project scope shapes an estimate.", href: "/pricing" },
+        { title: "Careers", text: "Explore opportunities to build with our team.", href: "/careers" },
+        { title: "Guides", text: "Prepare your project brief and plan the first conversation.", href: "/guides" },
+        { title: "Help Center", text: "Get help with workspace access or a project question.", href: "/support" },
+        { title: "Documentation", text: "Find publication updates and request product information.", href: "/documentation" },
+        { title: "Case Studies", text: "Check for published work and discuss relevant experience.", href: "/case-studies" },
+        { title: "Blog", text: "Find the home for future HEXVAULT articles and updates.", href: "/blog" },
+        { title: "Security", text: "Discuss data handling and project security requirements.", href: "/security" },
+      ].map(page => <Link className="hl-page-card" href={page.href} key={page.href}><h3>{page.title}<ArrowUpRight size={20}/></h3><p>{page.text}</p></Link>)}</div>
     </section>
 
     <section className="hl-section hl-cta-section" id="pricing" aria-labelledby="hl-cta-title"><div className="hl-cta"><div className="hl-cta-glow" aria-hidden="true"/><div className="hl-cta-copy"><p className="hl-eyebrow"><span/>LET&apos;S BUILD SOMETHING USEFUL</p><h2 id="hl-cta-title">What are you<br/><span>building next?</span></h2><p>Share your idea, your challenge, or your next milestone. We&apos;ll discuss the scope, timeline, and pricing around what you need.</p><div className="hl-cta-actions"><Link href="/contact#project-inquiry" className="hl-primary-link">Discuss your project <ArrowUpRight size={18}/></Link><Link href="/products" className="hl-secondary-link">Explore products <ArrowRight size={17}/></Link></div></div><div className="hl-cta-symbol" aria-hidden="true"><span/><span/><span/><span/></div></div></section>

@@ -7,11 +7,6 @@ import { useEffect, useRef, useState } from "react";
 import LandingLogo from "@/components/landing/shared/LandingLogo";
 import { formatProductPrice, type CatalogProduct } from "@core/features/products/catalog";
 
-const information = {
-  services: { title: "Built around your next idea.", description: "From web and mobile development to cloud engineering, DevOps, and AI automation, we help bring your software to life." },
-  about: { title: "Engineering software that holds.", description: "HexVault builds resilient, readable, and scalable systems for real-world impact. We bring thoughtful engineering to the tools and platforms your team relies on." },
-  why: { title: "A partner in what comes next.", description: "Bring your product vision, technical challenges, and ambitions. We work with you to turn them into practical software that can grow with your team." },
-};
 
 function ProductMark() {
   return <svg viewBox="0 0 56 62" fill="none" aria-hidden="true"><path d="m28 2 25 14v30L28 60 3 46V16Z"/><path d="m28 14 15 9v17l-15 9-15-9V23Z"/><path d="m14 24 14 9 15-9M28 21l9 5-9 5-8-5M14 33l14 9 15-9"/></svg>;
@@ -54,11 +49,11 @@ export default function ProductsPage() {
           <Link href="/" className="products-home" aria-label="HexVault home"><LandingLogo /></Link>
           <div className="products-links" id="products-navigation" data-open={menuOpen}>
             <Link href="/products" aria-current="page" onClick={() => setMenuOpen(false)}>Products</Link>
-            <button onClick={() => showDialog(information.services)}>Services</button>
+            <Link href="/services">Services</Link>
             <Link href="/careers">Careers</Link>
-            <button onClick={() => showDialog(information.about)}>About</button>
+            <Link href="/about">About</Link>
             <Link href="/contact">Contact</Link>
-            <button onClick={() => showDialog(information.why)}>Why HexVault</button>
+            <Link href="/about">Why HexVault</Link>
           </div>
           <Link href="/contact" className="products-project">Start a project <ArrowUpRight size={20} /></Link>
           <button className="products-menu" aria-label={menuOpen ? "Close navigation" : "Open navigation"} aria-expanded={menuOpen} aria-controls="products-navigation" onClick={() => setMenuOpen(!menuOpen)}>{menuOpen ? <X /> : <Menu />}</button>

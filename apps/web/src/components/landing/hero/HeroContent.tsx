@@ -7,7 +7,7 @@ export default function HeroContent() {
       <p>Collaborate, build, and scale AI-powered solutions together in real-time.</p>
       <div className="hv-hero-actions">
         <Link className="hv-action hv-action-primary" href="/contact">Contact Us</Link>
-        <a className="hv-action hv-action-secondary" href="#pricing">View Pricing</a>
+        <Link className="hv-action hv-action-secondary" href="/pricing">View Pricing</Link>
       </div>
     </div>
   );

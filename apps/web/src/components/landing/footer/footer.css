@@ -22,6 +22,8 @@
 .hf-description { max-width: 380px; line-height: 1.7; font-size: clamp(16px,1.3vw,21px); }
 .hf-social { display: flex; gap: clamp(20px,2.8vw,48px); margin-top: 36px; color: #d5d5d5; }
 .hf-social svg { width: 33px; height: 33px; fill: currentColor; }
+.hf-team-login { display: inline-flex; align-items: center; gap: 25px; margin-top: 28px; padding: 13px 22px; border: 1px solid #ff974f; border-radius: 999px; color: #ff974f !important; font-size: 15px; font-weight: 600; transition: background .2s ease; }
+.hf-team-login:hover { background: #ff974f20; }
 .hf-column h2 { font-size: clamp(15px,1.25vw,21px); font-weight: 600; color: #ff974f; text-transform: uppercase; margin: 3px 0 13px; }
 .hf-column ul { list-style: none; margin: 0; padding: 0; }
 .hf-column li { font-size: clamp(15px,1.25vw,21px); line-height: 1.5; padding: 5px 0; }

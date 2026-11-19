@@ -57,6 +57,7 @@
 .hv-dropdown-panel span { color: #9a9a9a; font-size: 12px; line-height: 1.5; }
 .hv-floating-nav .hv-signup { flex: none; min-height: 44px; padding: 0 22px; border: 1px solid #ff581b; border-radius: 999px; background: #ff4b08; color: #fff; font-size: 16px; white-space: nowrap; transition: background .18s; }
 .hv-floating-nav .hv-signup:hover { background: #ff6529; }
+.hv-floating-nav a.hv-signup { display: inline-flex; align-items: center; justify-content: center; }
 .hv-mobile-navigation { display: none; }
 
 .hv-hero-content { position: relative; z-index: 2; width: 100%; padding: calc(18.7svh + 15vw) 24px 50px; text-align: center; }

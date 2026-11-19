@@ -1,15 +1,14 @@
 ﻿import Link from "next/link";
 import { ChevronDown } from "lucide-react";
 import LandingLogo from "../shared/LandingLogo";
-import type { LandingInfoKey, OpenLandingInfo } from "../shared/landingConfig";
 import "./footer.css";
 
-type Entry = { label: string; href?: string; info?: LandingInfoKey };
+type Entry = { label: string; href: string };
 const groups: { title: string; entries: Entry[] }[] = [
-  { title: "Services", entries: ["Web Development", "Mobile Development", "Cloud Engineering", "DevOps", "AI & Automation", "Product Engineering"].map(label => ({ label, href: "/contact#project-inquiry" })) },
-  { title: "Company", entries: [{ label: "About Us", href: "/#why-hexvault" }, { label: "Our Process", href: "/#how-it-works" }, { label: "Case Studies" }, { label: "Careers", href: "/careers" }, { label: "Blog" }, { label: "Contact", href: "/contact" }] },
-  { title: "Resources", entries: [{ label: "Documentation" }, { label: "Help Center", info: "support" }, { label: "Guides" }, { label: "API Reference" }, { label: "Status" }, { label: "Security", href: "#footer-security" }] },
-  { title: "Legal", entries: [{ label: "Privacy Policy", info: "privacy" }, { label: "Terms of Service", info: "terms" }, { label: "Cookie Policy" }, { label: "Acceptable Use" }, { label: "Data Processing" }, { label: "SLA" }] },
+  { title: "Services", entries: [{ label: "Web Development", href: "/web-development" }, { label: "Mobile Development", href: "/mobile-development" }, { label: "Cloud Engineering", href: "/cloud-engineering" }, { label: "DevOps", href: "/devops" }, { label: "AI & Automation", href: "/ai-automation" }, { label: "Product Engineering", href: "/product-engineering" }] },
+  { title: "Company", entries: [{ label: "About Us", href: "/about" }, { label: "Our Process", href: "/process" }, { label: "Case Studies", href: "/case-studies" }, { label: "Careers", href: "/careers" }, { label: "Blog", href: "/blog" }, { label: "Contact", href: "/contact" }] },
+  { title: "Resources", entries: [{ label: "Documentation", href: "/documentation" }, { label: "Help Center", href: "/support" }, { label: "Guides", href: "/guides" }, { label: "API Reference", href: "/api-reference" }, { label: "Status", href: "/status" }, { label: "Security", href: "/security" }] },
+  { title: "Legal", entries: [{ label: "Privacy Policy", href: "/privacy" }, { label: "Terms of Service", href: "/terms" }, { label: "Cookie Policy", href: "/cookies" }, { label: "Acceptable Use", href: "/acceptable-use" }, { label: "Data Processing", href: "/data-processing" }, { label: "SLA", href: "/sla" }] },
 ];
 
 function SocialMarks() {
@@ -21,7 +20,7 @@ function SocialMarks() {
   </div>;
 }
 
-export default function LandingFooter({ onInfo }: { onInfo: OpenLandingInfo }) {
+export default function LandingFooter() {
   return <footer className="hv-site-footer">
     <section className="hf-faq" aria-label="Frequently asked questions">
       <details><summary>Is the generated code production-ready?<ChevronDown /></summary><p>Review generated code, run your project’s tests, and verify it in your staging environment before deploying.</p></details>
@@ -33,8 +32,9 @@ export default function LandingFooter({ onInfo }: { onInfo: OpenLandingInfo }) {
         <p className="hf-tagline">Engineering software that holds.</p>
         <p className="hf-description">We build resilient, readable and scalable systems for real-world impact.</p>
         <SocialMarks />
+        <Link href="/login" className="hf-team-login">Team Login <span aria-hidden="true">↗</span></Link>
       </div>
-      {groups.map(({ title, entries }) => <section key={title} className="hf-column"><h2>{title}</h2><ul>{entries.map(({ label, href, info }) => <li key={label}>{href ? <Link href={href}>{label}</Link> : info ? <button onClick={() => onInfo(info)}>{label}</button> : <span>{label}</span>}</li>)}</ul></section>)}
+      {groups.map(({ title, entries }) => <section key={title} className="hf-column"><h2>{title}</h2><ul>{entries.map(({ label, href }) => <li key={label}><Link href={href}>{label}</Link></li>)}</ul></section>)}
       <p className="hf-copyright">© HexVault Technologies {new Date().getFullYear()} · All rights reserved.</p>
     </div>
     <svg className="hf-watermark" aria-hidden="true" viewBox="0 0 1400 195"><defs><linearGradient id="hf-ink" x2="0" y2="1" gradientUnits="objectBoundingBox"><stop stopColor="#28282a"/><stop offset="1" stopColor="#131417"/></linearGradient></defs><text x="0" y="179" textLength="1400" lengthAdjust="spacingAndGlyphs" fontFamily="Arial, sans-serif" fontWeight="900" fontSize="250" fill="url(#hf-ink)">HEXVAULT</text></svg>
