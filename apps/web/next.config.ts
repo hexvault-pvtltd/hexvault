@@ -9,9 +9,12 @@ const nextConfig: NextConfig = {
   output: "standalone",
   outputFileTracingRoot: root,
   transpilePackages: ["@hexvault/core"],
-  // Local development uses the separately running API app. Vercel Services
-  // routes /api/* to the API service before requests reach this Next.js app.
-  rewrites: process.env.VERCEL ? undefined : async () => [{ source: "/api/:path*", destination: `${apiInternalUrl}/api/:path*` }],
+  // A standalone web deployment can forward missing API routes to Render.
+  // Root Vercel Services deployments route API requests before reaching web.
+  // Local route handlers take precedence over this fallback.
+  rewrites: process.env.VERCEL && !process.env.API_INTERNAL_URL && !process.env.API_INTERNAL_HOSTPORT
+    ? undefined
+    : async () => ({ fallback: [{ source: "/api/:path*", destination: `${apiInternalUrl.replace(/\/$/, "")}/api/:path*` }] }),
   webpack(config) {
     config.resolve.alias = {
       ...config.resolve.alias,

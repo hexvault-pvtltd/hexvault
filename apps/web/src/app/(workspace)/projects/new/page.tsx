@@ -30,12 +30,19 @@ export default function NewProject() {
         headers: { "content-type": "application/json" },
         body: JSON.stringify(body),
       });
-      const result = await response.json();
+      const result = await response.json().catch(() => null);
       if (!response.ok) {
-        setError(result.error?.message ?? "Could not create project.");
+        setError(result?.error?.message ?? (response.status === 404
+          ? "Project creation is unavailable on this deployment. Please contact your administrator."
+          : `Could not create project (server response ${response.status}). Please try again.`));
+        return;
+      }
+      if (!result?.data?.id) {
+        setError("The server returned an unexpected response. Check the project list before trying again.");
         return;
       }
       router.push("/projects");
+      router.refresh();
     } catch {
       setError("Could not reach the server. Check your connection and try again.");
     } finally {
