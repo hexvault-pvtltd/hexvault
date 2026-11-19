@@ -151,6 +151,7 @@ export default function LoginPage() {
             </div>
           </div>
 
+          <p className="mt-6 text-center text-sm"><Link href="/verify-certificate" className="font-semibold text-[#c75534]">Verify an employment certificate</Link></p>
           <p className="mt-6 text-center text-xs leading-5 text-slate-500">Need an account? Ask your HEXVAULT administrator for an invitation.</p>
           <p className="mt-8 text-center text-[10px] uppercase tracking-[.14em] text-slate-400 lg:hidden">© {new Date().getFullYear()} HEXVAULT</p>
         </div>

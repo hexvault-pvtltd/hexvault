@@ -2,15 +2,17 @@
 
 import { FormEvent, useState } from "react";
 import { useRouter } from "next/navigation";
+import { DepartmentTeamFields } from "@/components/department-team-fields";
 
 export default function NewProject() {
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
   const router = useRouter();
+  const [organizationReady, setOrganizationReady] = useState(false);
 
   async function save(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    if (busy) return;
+    if (busy || !organizationReady) return;
 
     const form = event.currentTarget;
     const fields = new FormData(form);
@@ -21,7 +23,7 @@ export default function NewProject() {
       return;
     }
 
-    const body = Object.fromEntries([...fields.entries()].filter(([, value]) => value !== ""));
+    const body = { ...Object.fromEntries([...fields.entries()].filter(([key, value]) => value !== "" && key !== "teamIds")), teamIds: fields.getAll("teamIds") };
     setBusy(true);
     setError("");
     try {
@@ -68,6 +70,7 @@ export default function NewProject() {
         <label className="block text-xs font-semibold">Description
           <textarea name="description" rows={3} maxLength={4000} className="mt-2 block w-full rounded-lg border border-slate-200 p-3 text-sm outline-none focus:border-[#f46327] focus:ring-2 focus:ring-[#f46327]/15" />
         </label>
+        <DepartmentTeamFields project disabled={busy} onReadyChange={setOrganizationReady}/>
         <div className="grid gap-4 sm:grid-cols-2">
           <label className="block text-xs font-semibold">Start date
             <input name="startDate" type="date" className={fieldClass} />
@@ -79,7 +82,7 @@ export default function NewProject() {
         {error && <p role="alert" aria-live="polite" className="rounded-lg border border-rose-200 bg-rose-50 px-3 py-2 text-sm text-rose-700">{error}</p>}
         <div className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
           <button type="button" onClick={() => router.push("/projects")} className="min-h-10 rounded-lg border border-slate-200 px-4 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-50">Cancel</button>
-          <button type="submit" disabled={busy} className="min-h-10 rounded-lg bg-[#f46327] px-4 py-2 text-xs font-semibold text-white transition hover:bg-[#dc4b12] disabled:cursor-not-allowed disabled:opacity-60">{busy ? "Saving…" : "Save project"}</button>
+          <button type="submit" disabled={busy || !organizationReady} className="min-h-10 rounded-lg bg-[#f46327] px-4 py-2 text-xs font-semibold text-white transition hover:bg-[#dc4b12] disabled:cursor-not-allowed disabled:opacity-60">{busy ? "Saving…" : "Save project"}</button>
         </div>
       </form>
     </div>

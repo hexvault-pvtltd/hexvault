@@ -5,6 +5,8 @@ import { visibleEmployeeIds } from "@core/lib/scope";
 import { companyWorkDate } from "@core/lib/time";
 import Link from "next/link";
 import { V4MetricCard, V4PageHeader, V4StatusBadge } from "@/components/v4";
+import { EmploymentCertificates } from "@/components/employment-certificates";
+import { PersonalGoalsSummary } from "@/components/personal-goals-summary";
 
 export default async function Dashboard() {
   const user = await currentUser();
@@ -52,6 +54,8 @@ export default async function Dashboard() {
       <V4MetricCard label={isStaff ? "My open tasks" : "Pending tasks"} value={openTasks} caption="Work in progress" icon={<CheckCircle2 size={16}/>} />
       <V4MetricCard label={isStaff ? "My pending requests" : "Pending approvals"} value={isStaff ? pendingLeave : pendingLeave + pendingCorrections} caption={isStaff ? "Leave requests waiting for review" : "Leave and attendance decisions"} icon={<Activity size={16}/>} />
     </section>
+    <PersonalGoalsSummary />
+    <EmploymentCertificates />
     <section className="mt-4 rounded-[18px] border border-[#e8e8e8] bg-white p-4 sm:p-5" aria-labelledby="attendance-chart-title">
       <div className="flex flex-wrap items-start justify-between gap-3"><div><h2 id="attendance-chart-title" className="text-xs font-semibold">Workforce attendance</h2><p className="mt-1 text-[10px] text-[#858585]">Daily attendance sessions over the last seven days</p></div><Link href="/attendance" className="text-[10px] font-semibold text-[#292929]">View attendance ↗</Link></div>
       <div role="img" aria-label={`Attendance sessions by day: ${attendanceDays.map((day) => `${day.label} ${day.count}`).join(", ")}`} className="mt-4 grid h-32 grid-cols-7 items-end gap-2 sm:h-36 sm:gap-4">{attendanceDays.map((day) => <div key={day.date} title={`${day.date}: ${day.count} sessions`} className="flex h-full flex-col items-center justify-end gap-2"><span className="text-[9px] text-[#777]">{day.count}</span><div className="flex h-[78%] w-full items-end justify-center rounded-t-md bg-[#f2f2f2]"><div className="w-full max-w-9 rounded-t-md bg-[#292929] transition-[height]" style={{ height: `${Math.max(4, day.count / attendancePeak * 100)}%` }}/></div><span className="text-[9px] text-[#858585]">{day.label}</span></div>)}</div>

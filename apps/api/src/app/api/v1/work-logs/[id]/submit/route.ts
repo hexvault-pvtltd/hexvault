@@ -1,5 +1,1 @@
-import { currentUser } from "@core/lib/auth";
-import { db } from "@core/lib/db";
-import { ok } from "@core/lib/http";
-import { NextResponse } from "next/server";
-export async function POST(_request:Request,{params}:{params:Promise<{id:string}>}){const actor=await currentUser();if(!actor)return NextResponse.json({error:{code:"UNAUTHENTICATED",message:"Sign in to continue."}},{status:401});const {id}=await params;const log=await db.dailyWorkLog.findUnique({where:{id}});if(!log)return NextResponse.json({error:{code:"NOT_FOUND",message:"Work log not found."}},{status:404});if(log.employeeId!==actor.employee?.id)return NextResponse.json({error:{code:"FORBIDDEN",message:"You can only submit your own journal."}},{status:403});const result=await db.dailyWorkLog.updateMany({where:{id,reviewStatus:"DRAFT"},data:{reviewStatus:"SUBMITTED",submittedAt:new Date()}});if(!result.count)return NextResponse.json({error:{code:"CONFLICT",message:"This journal is already submitted."}},{status:409});await db.auditLog.create({data:{actorId:actor.id,action:"work_log.submitted",resourceType:"work_log",resourceId:id}});return ok({submitted:true});}
+export { POST } from "@core/http/routes/v1/work-logs/[id]/submit/route";
