@@ -29,11 +29,8 @@ function trapDialogFocus(event: ReactKeyboardEvent<HTMLElement>) {
 export function Workspace({ children, name, role, roles }: { children: React.ReactNode; name: string; role: string; roles: string[] }) {
   const pathname = usePathname();
   const visibleGroups = navigationForRoles(roles);
-  const visibleLinks = visibleGroups.flatMap(groupLinks);
-  const currentGroup = visibleGroups.find((group) => groupLinks(group).some(([, href]) => isActive(pathname, href, visibleLinks)))?.title ?? "Overview";
+  const visibleLinks = visibleGroups.flatMap(groupLinks).filter(([, href], index, links) => links.findIndex(([, candidate]) => candidate === href) === index);
   const currentPageLabel = visibleLinks.filter(([, href]) => isActive(pathname, href, visibleLinks)).sort((a, b) => b[1].length - a[1].length)[0]?.[0] ?? "Dashboard";
-  const [expandedState, setExpandedState] = useState({ pathname, groups: [currentGroup] });
-  const expandedGroups = expandedState.pathname === pathname ? expandedState.groups : [...new Set([...expandedState.groups, currentGroup])];
   const [mobileOpen, setMobileOpen] = useState(false);
   const [profileOpen, setProfileOpen] = useState(false);
   const [logoutError, setLogoutError] = useState("");
@@ -86,19 +83,7 @@ export function Workspace({ children, name, role, roles }: { children: React.Rea
   }
   function sideNav(mobile = false) {
     return <nav aria-label="Workspace navigation" className="space-y-1.5">
-      {visibleGroups.map((group, index) => {
-        const expanded = expandedGroups.includes(group.title);
-        const panelId = `${mobile ? "mobile" : "desktop"}-navigation-${index}`;
-        const GroupIcon = group.icon;
-        return <section key={group.title} className="min-w-0">
-        <button type="button" aria-expanded={expanded} aria-controls={panelId} onClick={() => setExpandedState({ pathname, groups: expanded ? expandedGroups.filter(title => title !== group.title) : [...expandedGroups, group.title] })} className={`flex min-h-10 w-full min-w-0 items-center justify-between gap-2 rounded-lg px-3 py-2 text-left text-[11px] font-semibold tracking-[-.01em] leading-tight transition-colors ${currentGroup === group.title ? "bg-neutral-50 text-[#292929]" : "text-[var(--muted)] hover:bg-neutral-50 hover:text-[var(--foreground)]"}`}>
-          <span className="flex min-w-0 items-center gap-2">{GroupIcon && <GroupIcon size={14} strokeWidth={1.8} aria-hidden="true"/>}<span>{group.title}</span></span><ChevronDown size={12} className={`shrink-0 transition-transform ${expanded ? "rotate-180" : ""}`}/>
-        </button>
-        <div id={panelId} hidden={!expanded} className="mb-2 mt-1 space-y-3">
-          {group.links.length > 0 && navLinks(group.links)}
-          {group.sections?.map(section => <div key={section.title} className="ml-3 border-l border-slate-100 pl-2"><p className="px-3 pb-1 pt-1 text-[9px] font-semibold uppercase tracking-[.08em] text-slate-400">{section.title}</p>{navLinks(section.links)}</div>)}
-        </div>
-      </section>;})}
+      {navLinks(visibleLinks)}
       {mobile && <div className="border-t border-[var(--border)] pt-3"><button type="button" onClick={logout} disabled={logoutBusy} className="flex min-h-10 w-full items-center gap-2 rounded-xl px-3 text-xs text-[#656565] hover:bg-[#f2f2f2]"><LogOut size={15}/>{logoutBusy ? "Signing out…" : "Sign out"}</button></div>}
     </nav>;
   }

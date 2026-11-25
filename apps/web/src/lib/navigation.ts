@@ -13,7 +13,7 @@ const navigation: NavGroup[] = [
   { title: "Work & collaboration", icon: BriefcaseBusiness, links: [], sections: [
     { title: "Daily work", links: [["Chat", "/chat", MessageCircle], ["Tasks", "/tasks", ClipboardList], ["Work journal", "/work-logs/my-journal", FileText]] },
     { title: "Projects", links: [["All projects", "/projects", BriefcaseBusiness], ["Create project", "/projects/new", BriefcaseBusiness]] },
-    { title: "Performance", links: [["Overview", "/performance", Activity], ["Goals", "/performance/goals", ClipboardList], ["Reviews", "/performance/reviews", FileText]] },
+    { title: "Performance", links: [["Performance overview", "/performance", Activity], ["Goals", "/performance/goals", ClipboardList], ["Reviews", "/performance/reviews", FileText]] },
   ] },
   { title: "People & organization", icon: Users, links: [], sections: [
     { title: "Workforce", links: [["Employees", "/workforce", Users], ["Add employee", "/workforce/new", Users], ["Former members", "/former-members", Users]] },
