@@ -20,7 +20,6 @@ export async function GET() {
         id: true, kind: true, name: true, description: true, createdBy: true, lastMessageAt: true,
         members: { where: { leftAt: null, user: { is: activeEmployee } }, select: { user: { select: { id: true, employee: { select: { id: true, fullName: true, employeeCode: true, title: true } } } } } },
         messages: { orderBy: [{ createdAt: "desc" }, { id: "desc" }], take: 1, select: { id: true, senderId: true, body: true, createdAt: true, attachments: { select: { id: true } } } },
-        voiceCalls: { where: { status: "ACTIVE" }, orderBy: { startedAt: "desc" }, take: 1, select: { id: true, participants: { where: { leftAt: null }, select: { userId: true } } } },
       },
       orderBy: { lastMessageAt: "desc" },
       take: 200,
@@ -38,14 +37,12 @@ export async function GET() {
       const peer = people.find(person => person.userId !== actor.id) ?? null;
       if (conversation.kind === "DIRECT" && !peer) return [];
       const latest = conversation.messages[0];
-      const activeCall = conversation.voiceCalls[0] ?? null;
       return [{
         id: conversation.id, kind: conversation.kind, name: conversation.name, description: conversation.description,
         createdBy: conversation.createdBy, peer, members: people,
         lastMessage: latest ? { ...latest, mine: latest.senderId === actor.id, hasAttachments: latest.attachments.length > 0 } : null,
         lastMessageAt: conversation.lastMessageAt,
         pinnedMessages: (pinnedByConversation.get(conversation.id) ?? []).slice(0, 10).map(message => ({ id: message.id, body: message.body, senderName: message.sender.employee?.fullName ?? message.sender.email, hasAttachments: message.attachments.length > 0, pinnedAt: message.pinnedAt })),
-        activeCall: activeCall ? { id: activeCall.id, participantCount: activeCall.participants.length } : null,
       }];
     });
     return ok({ items });
@@ -76,6 +73,6 @@ export async function POST(request: NextRequest) {
       return created;
     });
     const people = [{ userId: actor.id, employeeId: "", fullName: "You", employeeCode: "", title: null }, ...activeMembers.map(member => ({ userId: member.id, employeeId: member.employee!.id, fullName: member.employee!.fullName, employeeCode: member.employee!.employeeCode, title: member.employee!.title }))];
-    return ok({ item: { ...group, peer: null, members: people, lastMessage: null, lastMessageAt: new Date(), activeCall: null } }, 201);
+    return ok({ item: { ...group, peer: null, members: people, lastMessage: null, lastMessageAt: new Date() } }, 201);
   } catch (error) { return fail(error); }
 }
