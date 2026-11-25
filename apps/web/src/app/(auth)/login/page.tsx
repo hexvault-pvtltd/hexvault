@@ -4,7 +4,7 @@ import { FormEvent, useState } from "react";
 import { useRouter } from "next/navigation";
 import Image from "next/image";
 import Link from "next/link";
-import { ArrowRight, Eye, EyeOff, LockKeyhole, ShieldCheck, Sparkles } from "lucide-react";
+import { ArrowRight, Eye, EyeOff, ShieldCheck, Sparkles } from "lucide-react";
 
 export default function LoginPage() {
   const [error, setError] = useState("");
@@ -151,7 +151,7 @@ export default function LoginPage() {
             </div>
           </div>
 
-          <p className="mt-6 text-center text-sm"><Link href="/verify-certificate" className="font-semibold text-[#c75534]">Verify an employment certificate</Link></p>
+          <div className="mt-6 text-center text-sm"><a href="/verify-certificate" className="inline-flex min-h-11 items-center justify-center gap-2 rounded-xl border border-neutral-200 bg-white px-4 py-3 font-semibold text-neutral-800 transition-colors hover:border-neutral-400 hover:bg-neutral-50"><ShieldCheck size={17} aria-hidden="true"/>Verify an employment certificate<ArrowRight size={16} aria-hidden="true"/></a></div>
           <p className="mt-6 text-center text-xs leading-5 text-slate-500">Need an account? Ask your HEXVAULT administrator for an invitation.</p>
           <p className="mt-8 text-center text-[10px] uppercase tracking-[.14em] text-slate-400 lg:hidden">© {new Date().getFullYear()} HEXVAULT</p>
         </div>
