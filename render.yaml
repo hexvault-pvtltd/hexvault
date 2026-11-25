@@ -48,3 +48,22 @@ services:
         generateValue: true
       - key: COMPANY_TIMEZONE
         value: Asia/Kolkata
+      # Supply credentials for an existing private S3-compatible bucket.
+      # Set these on a standalone Vercel web project as well: its local API
+      # route handlers take precedence over the API_INTERNAL_URL fallback.
+      - key: S3_BUCKET
+        sync: false
+      - key: S3_ACCESS_KEY_ID
+        sync: false
+      - key: S3_SECRET_ACCESS_KEY
+        sync: false
+      - key: S3_REGION
+        sync: false
+      - key: S3_ENDPOINT
+        sync: false # HTTPS endpoint for S3-compatible storage; empty for AWS S3.
+      - key: S3_PUBLIC_ENDPOINT
+        sync: false # Browser-reachable endpoint; empty to use S3_ENDPOINT.
+      - key: CLAMAV_HOST
+        sync: false # Scanner reachable from the deployed API (never localhost).
+      - key: CLAMAV_PORT
+        value: "3310"
