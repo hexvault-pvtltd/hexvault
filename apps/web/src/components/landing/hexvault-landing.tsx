@@ -4,11 +4,12 @@ import HeroContent from "./hero/HeroContent";
 import LandingNavbar from "./navigation/LandingNavbar";
 import LandingFooter from "./footer/LandingFooter";
 import LandingBody from "./LandingBody";
+import LandingIntro from "./LandingIntro";
 import "@/styles/landing.css";
 
-export default function HexvaultLanding() {
+export default function HexvaultLanding({ skipIntro = false }: { skipIntro?: boolean }) {
   return (
-    <main className="hv-landing">
+    <LandingIntro skipIntro={skipIntro}><main className="hv-landing">
       <section className="hv-landing-hero">
         <ParticleBackground animated={false} />
         <HeroBrandTypography />
@@ -17,6 +18,6 @@ export default function HexvaultLanding() {
       </section>
       <LandingBody />
       <LandingFooter />
-    </main>
+    </main></LandingIntro>
   );
 }

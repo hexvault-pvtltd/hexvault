@@ -30,6 +30,9 @@ export function Workspace({ children, name, role, roles }: { children: React.Rea
   const pathname = usePathname();
   const visibleGroups = navigationForRoles(roles);
   const visibleLinks = visibleGroups.flatMap(groupLinks).filter(([, href], index, links) => links.findIndex(([, candidate]) => candidate === href) === index);
+  const currentGroup = visibleGroups.find(group => groupLinks(group).some(([, href]) => isActive(pathname, href, visibleLinks)))?.title ?? visibleGroups[0]?.title ?? null;
+  const [expandedState, setExpandedState] = useState<{ pathname: string; group: string | null }>({ pathname, group: currentGroup });
+  const expandedGroup = expandedState.pathname === pathname ? expandedState.group : currentGroup;
   const currentPageLabel = visibleLinks.filter(([, href]) => isActive(pathname, href, visibleLinks)).sort((a, b) => b[1].length - a[1].length)[0]?.[0] ?? "Dashboard";
   const [mobileOpen, setMobileOpen] = useState(false);
   const [profileOpen, setProfileOpen] = useState(false);
@@ -83,7 +86,23 @@ export function Workspace({ children, name, role, roles }: { children: React.Rea
   }
   function sideNav(mobile = false) {
     return <nav aria-label="Workspace navigation" className="space-y-1.5">
-      {navLinks(visibleLinks)}
+      {visibleGroups.map((group, index) => {
+        const links = groupLinks(group).filter(link => visibleLinks.includes(link));
+        if (!links.length) return null;
+        const expanded = expandedGroup === group.title;
+        const panelId = `${mobile ? "mobile" : "desktop"}-navigation-${index}`;
+        const buttonId = `${panelId}-toggle`;
+        const GroupIcon = group.icon;
+        return <section key={group.title} className="min-w-0">
+          <button type="button" id={buttonId} aria-expanded={expanded} aria-controls={panelId} onClick={() => setExpandedState({ pathname, group: expanded ? null : group.title })} className={`flex min-h-10 w-full items-center justify-between gap-2 rounded-xl px-3 py-2 text-left text-xs font-semibold transition-colors ${currentGroup === group.title ? "bg-neutral-100 text-[#292929]" : "text-[#656565] hover:bg-[#f2f2f2] hover:text-[#171717]"}`}>
+            <span className="flex min-w-0 items-center gap-2.5">{GroupIcon && <GroupIcon size={15} strokeWidth={1.8} aria-hidden="true"/>}<span>{group.title}</span></span>
+            <ChevronDown size={13} aria-hidden="true" className={`shrink-0 transition-transform motion-reduce:transition-none ${expanded ? "rotate-180" : ""}`}/>
+          </button>
+          <div id={panelId} aria-labelledby={buttonId} hidden={!expanded} className="mb-2 ml-3 mt-1 border-l border-neutral-100 pl-2">
+            {navLinks(links)}
+          </div>
+        </section>;
+      })}
       {mobile && <div className="border-t border-[var(--border)] pt-3"><button type="button" onClick={logout} disabled={logoutBusy} className="flex min-h-10 w-full items-center gap-2 rounded-xl px-3 text-xs text-[#656565] hover:bg-[#f2f2f2]"><LogOut size={15}/>{logoutBusy ? "Signing out…" : "Sign out"}</button></div>}
     </nav>;
   }
