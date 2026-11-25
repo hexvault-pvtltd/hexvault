@@ -2,12 +2,14 @@
 
 import { FormEvent, useState } from "react";
 import { useRouter } from "next/navigation";
+import { useAppLoading } from "@/components/app-loading";
 import Image from "next/image";
 
 export function AcceptInvitationForm({ token }: { token: string }) {
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
   const router = useRouter();
+  const { startLoading, finishLoading } = useAppLoading();
 
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -21,15 +23,18 @@ export function AcceptInvitationForm({ token }: { token: string }) {
     }
     setBusy(true);
     setError("");
+    startLoading("/dashboard");
     try {
       const response = await fetch("/api/v1/invitations/accept", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ token, password, confirmPassword }) });
       const result = await response.json().catch(() => null);
       if (!response.ok) {
+        finishLoading();
         setError(result?.error?.message ?? "Unable to accept invitation.");
         return;
       }
       router.push("/dashboard");
     } catch {
+      finishLoading();
       setError("Could not reach the server. Your invitation was not changed.");
     } finally {
       setBusy(false);

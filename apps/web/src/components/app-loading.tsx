@@ -1,8 +1,32 @@
 "use client";
 
-import { Suspense, useCallback, useEffect, useLayoutEffect, useRef, useState, type ReactNode } from "react";
-import { usePathname, useSearchParams } from "next/navigation";
+import { createContext, Suspense, useCallback, useContext, useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from "react";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { LoadingScreen } from "./loading-screen";
+
+type LoadingControls = { startLoading: (href?: string) => void; finishLoading: () => void };
+const LoadingContext = createContext<LoadingControls | null>(null);
+export function useAppLoading() {
+  const controls = useContext(LoadingContext);
+  if (!controls) throw new Error("useAppLoading must be used inside AppLoading.");
+  return controls;
+}
+
+export function useLoadingRouter() {
+  const router = useRouter();
+  const { startLoading } = useAppLoading();
+  return useMemo(() => {
+    const startNavigation = (href: string) => {
+      const url = new URL(href, window.location.href);
+      if (url.pathname !== window.location.pathname || url.search !== window.location.search) startLoading(href);
+    };
+    return {
+      ...router,
+      push: (...args: Parameters<typeof router.push>) => { startNavigation(args[0]); router.push(...args); },
+      replace: (...args: Parameters<typeof router.replace>) => { startNavigation(args[0]); router.replace(...args); },
+    };
+  }, [router, startLoading]);
+}
 
 function RouteCommit({ onCommit }: { onCommit: () => void }) {
   const pathname = usePathname();
@@ -41,6 +65,17 @@ export function AppLoading({ children }: { children: ReactNode }) {
     lastRoute.current = window.location.pathname + window.location.search;
     lastActivity.current = performance.now();
   }, [begin]);
+
+  const startLoading = useCallback((href?: string) => {
+    destination.current = href ? new URL(href, window.location.href).href : window.location.href;
+    begin();
+  }, [begin]);
+  // Failed or completed actions stay on the current page and reveal feedback.
+  const finishLoading = useCallback(() => {
+    committed.current = true;
+    lastActivity.current = performance.now();
+  }, []);
+  const controls = useMemo(() => ({ startLoading, finishLoading }), [startLoading, finishLoading]);
 
   useLayoutEffect(() => {
     const content = contentRef.current;
@@ -117,11 +152,11 @@ export function AppLoading({ children }: { children: ReactNode }) {
     return () => { document.body.style.overflow = previous; };
   }, [phase]);
 
-  return <>
+  return <LoadingContext.Provider value={controls}>
     <Suspense fallback={null}><RouteCommit onCommit={onCommit}/></Suspense>
     {phase !== "ready" && <LoadingScreen leaving={phase === "leaving"}/>}
     {stalled && <div className="hv-loading-recovery"><p>This page is taking longer than expected.</p><button type="button" onClick={() => window.location.assign(destination.current ?? window.location.href)}>Reload page</button></div>}
     <div ref={contentRef}>{children}</div>
     <noscript><style>{`.hv-loading-screen{display:none!important}`}</style></noscript>
-  </>;
+  </LoadingContext.Provider>;
 }

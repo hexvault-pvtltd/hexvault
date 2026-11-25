@@ -1,8 +1,10 @@
 "use client";
 
 import { FormEvent, useState } from "react";
+import { useAppLoading } from "@/components/app-loading";
 
 export default function ForgotPassword() {
+  const { startLoading, finishLoading } = useAppLoading();
   const [message, setMessage] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState(false);
@@ -14,6 +16,7 @@ export default function ForgotPassword() {
     setBusy(true);
     setMessage("");
     setError(false);
+    startLoading();
     try {
       const response = await fetch("/api/v1/auth/forgot-password", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ email }) });
       const body = await response.json().catch(() => null);
@@ -27,6 +30,7 @@ export default function ForgotPassword() {
       setError(true);
       setMessage("Could not reach the server. Try again shortly.");
     } finally {
+      finishLoading();
       setBusy(false);
     }
   }

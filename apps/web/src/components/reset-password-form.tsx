@@ -1,8 +1,10 @@
 "use client";
 
 import { FormEvent, useState } from "react";
+import { useAppLoading } from "@/components/app-loading";
 
 export function ResetPasswordForm({ token }: { token: string }) {
+  const { startLoading, finishLoading } = useAppLoading();
   const [message, setMessage] = useState("");
   const [busy, setBusy] = useState(false);
   const [isError, setIsError] = useState(false);
@@ -14,6 +16,7 @@ export function ResetPasswordForm({ token }: { token: string }) {
     setBusy(true);
     setMessage("");
     setIsError(false);
+    startLoading();
     try {
       const response = await fetch("/api/v1/auth/reset-password", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ token, password }) });
       const body = await response.json().catch(() => null);
@@ -27,6 +30,7 @@ export function ResetPasswordForm({ token }: { token: string }) {
       setIsError(true);
       setMessage("Could not reach the server. Your password was not changed.");
     } finally {
+      finishLoading();
       setBusy(false);
     }
   }

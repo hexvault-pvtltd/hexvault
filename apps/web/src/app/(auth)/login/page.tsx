@@ -2,6 +2,7 @@
 
 import { FormEvent, useState } from "react";
 import { useRouter } from "next/navigation";
+import { useAppLoading } from "@/components/app-loading";
 import Image from "next/image";
 import Link from "next/link";
 import { ArrowRight, Eye, EyeOff, ShieldCheck, Sparkles } from "lucide-react";
@@ -11,6 +12,7 @@ export default function LoginPage() {
   const [busy, setBusy] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
   const router = useRouter();
+  const { startLoading, finishLoading } = useAppLoading();
 
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -19,6 +21,7 @@ export default function LoginPage() {
     setBusy(true);
     setError("");
     const form = new FormData(event.currentTarget);
+    startLoading("/dashboard");
 
     try {
       const response = await fetch("/api/v1/auth/login", {
@@ -33,6 +36,7 @@ export default function LoginPage() {
       if (!response.ok) throw new Error(result.error?.message ?? "We couldn’t sign you in. Check your details and try again.");
       router.replace("/dashboard");
     } catch (cause) {
+      finishLoading();
       setError(cause instanceof Error ? cause.message : "We couldn’t sign you in. Please try again.");
     } finally {
       setBusy(false);

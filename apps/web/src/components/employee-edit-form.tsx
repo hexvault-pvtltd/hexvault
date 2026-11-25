@@ -1,7 +1,7 @@
 "use client";
 
 import { FormEvent, useEffect, useState } from "react";
-import { useRouter } from "next/navigation";
+import { useLoadingRouter as useRouter } from "@/components/app-loading";
 import { DepartmentTeamFields } from "@/components/department-team-fields";
 
 type Employee = { id: string; employeeCode: string; fullName: string; workEmail: string; title: string | null; phone: string | null; department: { id: string; name: string } | null; memberships: { team: { id: string } }[] };

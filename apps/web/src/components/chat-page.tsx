@@ -1,7 +1,7 @@
 "use client";
 
 import { FormEvent, useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { useRouter } from "next/navigation";
+import { useLoadingRouter as useRouter } from "@/components/app-loading";
 import { ArrowLeft, ImagePlus, LoaderCircle, MessageCircle, Mic, Pin, Plus, Search, Send, Settings2, Square, Users, X } from "lucide-react";
 import { ChatImage } from "@/components/chat-image";
 import { ChatAudio } from "@/components/chat-audio";

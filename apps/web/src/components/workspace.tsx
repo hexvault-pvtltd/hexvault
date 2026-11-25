@@ -3,6 +3,7 @@
 import Link from "next/link";
 import Image from "next/image";
 import { NavigationPending } from "./navigation-pending";
+import { useAppLoading } from "./app-loading";
 import { usePathname } from "next/navigation";
 import { useEffect, useRef, useState, type KeyboardEvent as ReactKeyboardEvent } from "react";
 import { Bell, ChevronDown, LogOut, Menu, Search, X } from "lucide-react";
@@ -28,6 +29,7 @@ function trapDialogFocus(event: ReactKeyboardEvent<HTMLElement>) {
 
 export function Workspace({ children, name, role, roles }: { children: React.ReactNode; name: string; role: string; roles: string[] }) {
   const pathname = usePathname();
+  const { startLoading, finishLoading } = useAppLoading();
   const visibleGroups = navigationForRoles(roles);
   const visibleLinks = visibleGroups.flatMap(groupLinks).filter(([, href], index, links) => links.findIndex(([, candidate]) => candidate === href) === index);
   const currentGroup = visibleGroups.find(group => groupLinks(group).some(([, href]) => isActive(pathname, href, visibleLinks)))?.title ?? visibleGroups[0]?.title ?? null;
@@ -70,11 +72,12 @@ export function Workspace({ children, name, role, roles }: { children: React.Rea
   async function logout() {
     if (logoutBusy) return;
     setLogoutBusy(true); setLogoutError("");
+    startLoading("/login");
     try {
       const response = await fetch("/api/v1/auth/logout", { method: "POST" });
-      if (!response.ok) { setLogoutError("Sign out did not complete. Please retry."); return; }
+      if (!response.ok) { finishLoading(); setLogoutError("Sign out did not complete. Please retry."); return; }
       window.location.replace("/login");
-    } catch { setLogoutError("Could not reach the server. You are still signed in."); }
+    } catch { finishLoading(); setLogoutError("Could not reach the server. You are still signed in."); }
     finally { setLogoutBusy(false); }
   }
   const initials = name.split(" ").map((part) => part[0]).join("").slice(0, 2);

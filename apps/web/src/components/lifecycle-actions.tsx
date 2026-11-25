@@ -1,7 +1,7 @@
 "use client";
 
 import { FormEvent, useState } from "react";
-import { useRouter } from "next/navigation";
+import { useLoadingRouter as useRouter } from "@/components/app-loading";
 
 export function ChecklistCompleteButton({ apiPath }: { apiPath: string }) {
   const router = useRouter();
