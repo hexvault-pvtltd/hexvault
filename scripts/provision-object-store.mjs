@@ -44,7 +44,7 @@ for (let attempt = 0; attempt < 60; attempt += 1) {
       CORSConfiguration: {
         CORSRules: [{
           AllowedOrigins: [appOrigin],
-          AllowedMethods: ["POST"],
+          AllowedMethods: ["POST", "PUT"],
           AllowedHeaders: ["*"],
           ExposeHeaders: ["ETag"],
           MaxAgeSeconds: 600,

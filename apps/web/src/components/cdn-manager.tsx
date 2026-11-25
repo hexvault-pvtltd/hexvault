@@ -1,4 +1,5 @@
 "use client";
+import { uploadPrivateFile } from "@/lib/private-upload";
 
 import { FormEvent, useCallback, useEffect, useState } from "react";
 import { FileActions } from "./file-actions";
@@ -105,10 +106,7 @@ export function CdnManager({ initialFolders, people, owner, appUrl }: { initialF
       for (const file of files) {
         if (file.size > 50 * 1024 * 1024) throw new Error(`${file.name} exceeds the 50 MB limit.`);
         const init = await requestJson("/api/v1/cdn/uploads/init", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ folderId: selectedId, originalFilename: file.name, mimeType: file.type || "application/octet-stream", sizeBytes: file.size }) });
-        const formData = new FormData();
-        for (const [key, value] of Object.entries(init.fields as Record<string, string>)) formData.append(key, value);
-        formData.append("file", file);
-        const sent = await fetch(init.uploadUrl, { method: "POST", body: formData });
+        const sent = await uploadPrivateFile(init.uploadUrl, init, file);
         if (!sent.ok) throw new Error(`Storage rejected ${file.name}; check the storage CORS setup and try again.`);
         await requestJson("/api/v1/cdn/uploads/complete", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ fileId: init.fileId }) });
       }

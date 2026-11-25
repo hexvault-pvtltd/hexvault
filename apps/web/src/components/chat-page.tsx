@@ -1,4 +1,5 @@
 "use client";
+import { uploadPrivateFile } from "@/lib/private-upload";
 
 import { FormEvent, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useLoadingRouter as useRouter } from "@/components/app-loading";
@@ -182,10 +183,7 @@ export function ChatPage({ selfId, roles }: { selfId: string; roles: string[] })
   async function uploadAttachment(file: File) {
     const mimeType = file.type.split(";")[0].toLowerCase();
     const init = await requestJson("/api/v1/chat/uploads/init", json("POST", { conversationId, originalFilename: file.name, mimeType, sizeBytes: file.size }));
-    const form = new FormData();
-    Object.entries(init.fields as Record<string, string>).forEach(([key, value]) => form.append(key, value));
-    form.append("file", file);
-    const uploaded = await fetch(init.uploadUrl, { method: "POST", body: form });
+    const uploaded = await uploadPrivateFile(init.uploadUrl, init, file);
     if (!uploaded.ok) throw new Error("Private storage rejected the attachment.");
     const complete = await requestJson("/api/v1/files/upload-complete", json("POST", { fileId: init.fileId }));
     if (complete.scanStatus !== "CLEAN") throw new Error("The attachment is waiting for security scanning.");

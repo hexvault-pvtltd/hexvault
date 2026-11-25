@@ -21,7 +21,7 @@ function storageConfig() {
 function client() {
   if (!s3) {
     const config = storageConfig();
-    s3 = new S3Client({ region: config.region, endpoint: config.endpoint, forcePathStyle: Boolean(config.endpoint), credentials: { accessKeyId: config.accessKeyId, secretAccessKey: config.secretAccessKey } });
+    s3 = new S3Client({ region: config.region, endpoint: config.endpoint, forcePathStyle: Boolean(config.endpoint), requestChecksumCalculation: "WHEN_REQUIRED", credentials: { accessKeyId: config.accessKeyId, secretAccessKey: config.secretAccessKey } });
   }
   return s3;
 }
@@ -29,12 +29,22 @@ function signerClient() {
   const config = storageConfig();
   const endpoint = process.env.S3_PUBLIC_ENDPOINT || config.endpoint;
   if (endpoint === config.endpoint) return client();
-  if (!browserSigningClient) browserSigningClient = new S3Client({ region: config.region, endpoint, forcePathStyle: Boolean(endpoint), credentials: { accessKeyId: config.accessKeyId, secretAccessKey: config.secretAccessKey } });
+  if (!browserSigningClient) browserSigningClient = new S3Client({ region: config.region, endpoint, forcePathStyle: Boolean(endpoint), requestChecksumCalculation: "WHEN_REQUIRED", credentials: { accessKeyId: config.accessKeyId, secretAccessKey: config.secretAccessKey } });
   return browserSigningClient;
 }
-export async function createPrivateUpload(key: string, mimeType: string, maxBytes = MAX_UPLOAD_BYTES) {
+export async function createPrivateUpload(key: string, mimeType: string, maxBytes = MAX_UPLOAD_BYTES, sizeBytes?: number) {
   const config = storageConfig();
-  return createPresignedPost(signerClient(), { Bucket: config.bucket, Key: key, Expires: 600, Fields: { "Content-Type": mimeType }, Conditions: [["content-length-range", 1, maxBytes], ["eq", "$Content-Type", mimeType]] });
+  const endpoint = process.env.S3_PUBLIC_ENDPOINT || config.endpoint;
+  const isR2 = endpoint && new URL(endpoint).hostname.endsWith(".r2.cloudflarestorage.com");
+  if (isR2) {
+    // R2 does not implement S3's browser form POST. Sign the exact size and
+    // MIME type; the browser sets Content-Length from the raw File body.
+    if (!sizeBytes || !Number.isSafeInteger(sizeBytes) || sizeBytes > maxBytes || sizeBytes < 1) throw new Error("INVALID_UPLOAD_SIZE");
+    const url = await getSignedUrl(signerClient(), new PutObjectCommand({ Bucket: config.bucket, Key: key, ContentType: mimeType, ContentLength: sizeBytes }), { expiresIn: 600, signableHeaders: new Set(["content-type", "content-length"]) });
+    return { url, method: "PUT" as const, headers: { "Content-Type": mimeType }, fields: {} as Record<string, string> };
+  }
+  const post = await createPresignedPost(signerClient(), { Bucket: config.bucket, Key: key, Expires: 600, Fields: { "Content-Type": mimeType }, Conditions: [["content-length-range", 1, maxBytes], ["eq", "$Content-Type", mimeType]] });
+  return { ...post, method: "POST" as const, headers: {} as Record<string, string> };
 }
 export async function readPrivateObject(key: string, maxBytes = MAX_UPLOAD_BYTES) {
   const { bucket } = storageConfig();

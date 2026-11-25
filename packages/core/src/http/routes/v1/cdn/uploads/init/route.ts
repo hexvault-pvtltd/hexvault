@@ -24,8 +24,8 @@ export async function POST(request: NextRequest) {
       return { record, asset };
     });
     try {
-      const post = await createPrivateUpload(storageKey, input.mimeType, MAX_CDN_UPLOAD_BYTES + 1024 * 1024);
-      return NextResponse.json({ data: { assetId: file.asset.id, fileId: file.record.id, uploadUrl: post.url, fields: post.fields, expiresInSeconds: 600, maxBytes: MAX_CDN_UPLOAD_BYTES } }, { status: 201 });
+      const post = await createPrivateUpload(storageKey, input.mimeType, MAX_CDN_UPLOAD_BYTES + 1024 * 1024, input.sizeBytes);
+      return NextResponse.json({ data: { assetId: file.asset.id, fileId: file.record.id, uploadUrl: post.url, fields: post.fields, method: post.method, headers: post.headers, expiresInSeconds: 600, maxBytes: MAX_CDN_UPLOAD_BYTES } }, { status: 201 });
     } catch (error) {
       await db.$transaction(async tx => { await tx.cdnAsset.delete({ where: { id: file.asset.id } }); await tx.file.delete({ where: { id: file.record.id } }); });
       throw error;

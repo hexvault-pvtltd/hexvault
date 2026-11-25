@@ -20,8 +20,8 @@ export async function POST(request: NextRequest) {
     const file = await db.file.create({ data: { storageKey, originalFilename: input.originalFilename.replace(/[/\\]/g, "_").trim(), mimeType: input.mimeType, sizeBytes: BigInt(input.sizeBytes), uploadedBy: actor.id, scanStatus: "PENDING" } });
     try {
       const maxBytes = input.mimeType.startsWith("audio/") ? 8 * 1024 * 1024 : 5 * 1024 * 1024;
-      const upload = await createPrivateUpload(storageKey, input.mimeType, maxBytes);
-      return NextResponse.json({ data: { fileId: file.id, uploadUrl: upload.url, fields: upload.fields, maxBytes, expiresInSeconds: 600 } }, { status: 201 });
+      const upload = await createPrivateUpload(storageKey, input.mimeType, maxBytes, input.sizeBytes);
+      return NextResponse.json({ data: { fileId: file.id, uploadUrl: upload.url, fields: upload.fields, method: upload.method, headers: upload.headers, maxBytes, expiresInSeconds: 600 } }, { status: 201 });
     } catch (error) { await db.file.delete({ where: { id: file.id } }); throw error; }
   } catch (error) {
     if (error instanceof z.ZodError) return NextResponse.json({ error: { code: "VALIDATION_ERROR", message: "Choose an image up to 5 MB or a WebM, Ogg, or MP4 voice note up to 8 MB." } }, { status: 422 });

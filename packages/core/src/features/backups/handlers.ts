@@ -65,9 +65,9 @@ export async function saveSchedule(request: Request) {
 export async function initRestoreUpload(request: Request) {
   try {
     const actor = await requireRole("OWNER");
-    z.object({ size: z.number().int().positive().max(MAX_BACKUP_BYTES) }).strict().parse(await request.json());
+    const input = z.object({ size: z.number().int().positive().max(MAX_BACKUP_BYTES) }).strict().parse(await request.json());
     const uploadId = randomUUID();
-    const upload = await createPrivateUpload(`backups/uploads/${actor.id}/${uploadId}.json`, "application/json", MAX_BACKUP_BYTES);
+    const upload = await createPrivateUpload(`backups/uploads/${actor.id}/${uploadId}.json`, "application/json", MAX_BACKUP_BYTES, input.size);
     return ok({ uploadId, upload });
   } catch (error) { return failure(error); }
 }

@@ -1,4 +1,5 @@
 "use client";
+import { uploadPrivateFile } from "@/lib/private-upload";
 
 import Image from "next/image";
 import Link from "next/link";
@@ -36,10 +37,7 @@ async function uploadProductImage(file: File) {
     }
   }
   const upload = await api("/api/v1/cdn/uploads/init", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ folderId: folder.id, originalFilename: file.name, mimeType: file.type, sizeBytes: file.size }) });
-  const form = new FormData();
-  for (const [key, value] of Object.entries(upload.fields)) form.append(key, String(value));
-  form.append("file", file);
-  const response = await fetch(upload.uploadUrl, { method: "POST", body: form });
+  const response = await uploadPrivateFile(upload.uploadUrl, upload, file);
   if (!response.ok) throw new Error("The image upload failed. Please try again.");
   await api("/api/v1/cdn/uploads/complete", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ fileId: upload.fileId }) });
   await api(`/api/v1/cdn/assets/${upload.assetId}`, { method: "PATCH", headers: { "content-type": "application/json" }, body: JSON.stringify({ isPublic: true }) });

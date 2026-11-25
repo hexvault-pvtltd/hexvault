@@ -1,4 +1,5 @@
 "use client";
+import { uploadPrivateFile } from "@/lib/private-upload";
 
 import { useEffect, useState, type FormEvent } from "react";
 import { AlertTriangle, Clock3, DatabaseBackup, Download, RefreshCw, RotateCcw, Trash2 } from "lucide-react";
@@ -78,11 +79,8 @@ export function BackupManager({ initialHistory, initialSchedule, timezone }: { i
     if (!file || confirmation !== "RESTORE" || !password || disabled) return;
     begin("restore"); setProgress("Uploading your backup…");
     try {
-      const { uploadId, upload } = await api<{ uploadId: string; upload: { url: string; fields: Record<string, string> } }>("/api/v1/backups/uploads", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ size: file.size }) });
-      const form = new FormData();
-      Object.entries(upload.fields).forEach(([key, value]) => form.append(key, value));
-      form.append("file", file, file.name);
-      const response = await fetch(upload.url, { method: "POST", body: form });
+      const { uploadId, upload } = await api<{ uploadId: string; upload: { url: string; fields: Record<string, string>; method?: "POST" | "PUT"; headers?: Record<string, string> } }>("/api/v1/backups/uploads", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ size: file.size }) });
+      const response = await uploadPrivateFile(upload.url, upload, file);
       if (!response.ok) throw new Error("Backup upload failed. Please retry.");
       setProgress("Validating, saving a recovery backup, and restoring data. Keep this page open…");
       await api("/api/v1/backups/restore", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ uploadId, password, confirmation }) });
