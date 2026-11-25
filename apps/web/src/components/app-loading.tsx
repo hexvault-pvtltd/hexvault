@@ -1,11 +1,12 @@
 "use client";
 
 import { createContext, Suspense, useCallback, useContext, useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from "react";
-import { usePathname, useRouter, useSearchParams } from "next/navigation";
+import { usePathname, useRouter, useSearchParams, useSelectedLayoutSegment } from "next/navigation";
 import { LoadingScreen } from "./loading-screen";
 
 type LoadingControls = { startLoading: (href?: string) => void; finishLoading: () => void };
 const LoadingContext = createContext<LoadingControls | null>(null);
+const idleControls: LoadingControls = { startLoading: () => {}, finishLoading: () => {} };
 export function useAppLoading() {
   const controls = useContext(LoadingContext);
   if (!controls) throw new Error("useAppLoading must be used inside AppLoading.");
@@ -36,6 +37,16 @@ function RouteCommit({ onCommit }: { onCommit: () => void }) {
 }
 
 export function AppLoading({ children }: { children: ReactNode }) {
+  const segment = useSelectedLayoutSegment();
+  // Route groups cover every workspace/auth page, including nested routes and
+  // future additions, without maintaining a list of protected URLs.
+  if (segment === "(workspace)" || segment === "(auth)") {
+    return <LoadingContext.Provider value={idleControls}>{children}</LoadingContext.Provider>;
+  }
+  return <PublicAppLoading>{children}</PublicAppLoading>;
+}
+
+function PublicAppLoading({ children }: { children: ReactNode }) {
   const [phase, setPhase] = useState<"loading" | "leaving" | "ready">("loading");
   const [stalled, setStalled] = useState(false);
   const contentRef = useRef<HTMLDivElement>(null);
