@@ -6,9 +6,10 @@ import { visibleEmployeeIds } from "@core/lib/scope";
 import { NextRequest, NextResponse } from "next/server";
 import { OrganizationError } from "@core/features/organization/structure";
 import { syncEmployeeTeams, validateOrganizationSelection } from "@core/features/organization/selection";
+import { employeeCodeSchema, lockEmployeeNumbers, nextEmployeeNumber } from "./numbering";
 
 const createSchema = z.object({
-  employeeCode: z.string().trim().min(2).max(32),
+  employeeCode: z.preprocess(value => value === "" ? undefined : value, employeeCodeSchema.optional()),
   fullName: z.string().trim().min(2).max(120),
   workEmail: z.string().email().max(254),
   phone: z.string().trim().max(40).optional(),
@@ -41,10 +42,11 @@ export async function POST(request: NextRequest) {
     const input = createSchema.parse(await request.json());
     const email = input.workEmail.trim().toLowerCase();
     const employee = await db.$transaction(async tx => {
+      await lockEmployeeNumbers(tx);
       await validateOrganizationSelection(tx, input.departmentId ?? null, input.teamIds);
       const person = await tx.employee.create({
         data: {
-          employeeCode: input.employeeCode,
+          employeeCode: input.employeeCode ?? await nextEmployeeNumber(tx),
           fullName: input.fullName,
           workEmail: email,
           phone: input.phone || null,

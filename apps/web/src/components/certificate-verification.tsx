@@ -3,7 +3,7 @@
 import { FormEvent, useState } from "react";
 import Link from "next/link";
 
-type Result = { status: "VERIFIED" | "REVOKED"; certificateId: string; title?: string; recipientName?: string; jobTitle?: string; statement?: string; employmentStart?: string; employmentEnd?: string; issuedAt?: string };
+type Result = { status: "VERIFIED" | "REVOKED"; certificateId: string; title?: string; recipientName?: string; jobTitle?: string; statement?: string; employmentStart?: string; employmentEnd?: string; issuedAt?: string; original?: { filename: string; url: string; expiresInSeconds: number } | null };
 const date = (value?: string) => value ? new Date(value).toLocaleDateString("en-IN", { timeZone: "UTC", year: "numeric", month: "short", day: "numeric" }) : "";
 
 export function CertificateVerification({ initialCertificateId = "" }: { initialCertificateId?: string }) {
@@ -44,6 +44,7 @@ export function CertificateVerification({ initialCertificateId = "" }: { initial
           <p className="mt-6 text-xs font-bold tracking-widest">HEXVAULT</p><h2 className="mt-2 text-2xl font-semibold">{result.title}</h2>
           <dl className="mt-6 grid gap-4 text-sm sm:grid-cols-2"><div><dt className="text-slate-500">Issued to</dt><dd className="mt-1 font-semibold">{result.recipientName}</dd></div><div><dt className="text-slate-500">Role</dt><dd className="mt-1">{result.jobTitle}</dd></div><div><dt className="text-slate-500">Period of service</dt><dd className="mt-1">{date(result.employmentStart)} to {date(result.employmentEnd)}</dd></div><div><dt className="text-slate-500">Issued on</dt><dd className="mt-1">{date(result.issuedAt)}</dd></div></dl>
           <p className="mt-6 whitespace-pre-wrap text-sm leading-7">{result.statement}</p><p className="mt-6 text-xs text-slate-500">Verified against the HEXVAULT certificate registry on {new Date().toLocaleDateString()}. Verify again online to check the current status.</p>
+          {result.original&&<p className="mt-5 print:hidden"><a href={result.original.url} target="_blank" rel="noopener noreferrer" className="inline-block rounded-lg bg-[#f46327] px-4 py-2 text-sm font-semibold text-white">Download original certificate</a><span className="mt-2 block text-xs text-slate-500">{result.original.filename}. Link expires in five minutes; verify again for a new link.</span></p>}
           <button onClick={() => window.print()} className="mt-5 rounded-lg border border-slate-200 px-4 py-2 text-sm print:hidden">Print / Save PDF</button>
         </>}
       </section>}

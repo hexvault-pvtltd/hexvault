@@ -6,8 +6,10 @@ import { visibleEmployeeIds } from "@core/lib/scope";
 import { NextRequest, NextResponse } from "next/server";
 import { OrganizationError } from "@core/features/organization/structure";
 import { syncEmployeeTeams, validateOrganizationSelection } from "@core/features/organization/selection";
+import { employeeCodeSchema, lockEmployeeNumbers } from "./numbering";
 
 const updateSchema = z.object({
+  employeeCode: employeeCodeSchema.optional(),
   fullName: z.string().trim().min(2).max(120).optional(),
   workEmail: z.string().email().max(254).optional(),
   title: z.string().trim().max(120).nullable().optional(),
@@ -49,6 +51,7 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
     const { teamIds, ...fields } = input;
     const data = { ...fields, ...(input.workEmail ? { workEmail: input.workEmail.trim().toLowerCase() } : {}) };
     const updated = await db.$transaction(async tx => {
+      if (input.employeeCode !== undefined) await lockEmployeeNumbers(tx);
       await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext(${`employee-organization:${id}`}))`;
       const latest = await tx.employee.findUniqueOrThrow({ where: { id } });
       const memberships = await tx.teamMembership.findMany({ where: { employeeId: id, endedAt: null }, select: { teamId: true } });
@@ -66,7 +69,7 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
       const employee = await tx.employee.update({ where: { id }, data });
       await syncEmployeeTeams(tx, id, selectedTeams, actor.id);
       await tx.employeeHistory.create({
-        data: { employeeId: id, eventType: "PROFILE_UPDATED", actorId: actor.id, oldData: { fullName: latest.fullName, workEmail: latest.workEmail, title: latest.title, departmentId: latest.departmentId }, newData: data },
+        data: { employeeId: id, eventType: "PROFILE_UPDATED", actorId: actor.id, oldData: { employeeCode: latest.employeeCode, fullName: latest.fullName, workEmail: latest.workEmail, title: latest.title, departmentId: latest.departmentId }, newData: data },
       });
       await tx.auditLog.create({ data: { actorId: actor.id, action: "employee.profile_updated", resourceType: "employee", resourceId: id } });
       return employee;

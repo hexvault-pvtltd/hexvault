@@ -560,6 +560,7 @@ model File {
   taskAttachments TaskAttachment[]
   cdnAsset CdnAsset?
   chatAttachment ChatAttachment?
+  certificates EmploymentCertificate[]
 }
 
 model CdnFolder {
@@ -1141,6 +1142,8 @@ model EmploymentCertificate {
   recipientName String
   jobTitle String
   statement String
+  fileId String? @db.Uuid
+  file File? @relation(fields: [fileId], references: [id], onDelete: Restrict)
   employmentStart DateTime @db.Date
   employmentEnd DateTime @db.Date
   dobHash String
@@ -1150,6 +1153,7 @@ model EmploymentCertificate {
   revokedBy String? @db.Uuid
   @@index([employeeId, issuedAt])
   @@index([caseId, issuedAt])
+  @@index([fileId])
 }
 
 // Shared database counters work across serverless instances. No DOB is logged.

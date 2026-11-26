@@ -33,7 +33,7 @@ export function EmployeeEditForm({ employeeId }: { employeeId: string }) {
     try {
       const response = await fetch(`/api/v1/employees/${employeeId}`, {
         method: "PATCH", headers: { "content-type": "application/json" },
-        body: JSON.stringify({ fullName: values.fullName, workEmail: values.workEmail, title: values.title || null, phone: values.phone || null, departmentId: values.departmentId || null, teamIds: fields.getAll("teamIds") }),
+        body: JSON.stringify({ employeeCode: values.employeeCode, fullName: values.fullName, workEmail: values.workEmail, title: values.title || null, phone: values.phone || null, departmentId: values.departmentId || null, teamIds: fields.getAll("teamIds") }),
       });
       const body = await response.json();
       if (!response.ok) throw new Error(body.error?.message ?? "Unable to save employee changes.");
@@ -45,6 +45,7 @@ export function EmployeeEditForm({ employeeId }: { employeeId: string }) {
   if (!employee) return <div className="max-w-2xl">{error ? <p role="alert" className="rounded-lg bg-rose-50 p-3 text-sm text-rose-700">{error}</p> : <p className="text-sm text-slate-400">Loading employee record…</p>}</div>;
   return <div className="max-w-2xl"><p className="text-xs text-slate-400">People / Workforce / {employee.employeeCode}</p><h1 className="mt-2 text-2xl font-semibold">Edit employee</h1><p className="mt-1 text-sm text-slate-500">Profile changes are recorded in employment history and the audit log.</p>
     <form onSubmit={save} className="mt-6 space-y-4 rounded-xl border border-slate-200 bg-white p-6">
+      <label className="block text-xs font-semibold">Employee number<input required name="employeeCode" maxLength={32} defaultValue={employee.employeeCode} placeholder="0001" className="mt-2 block h-10 w-full rounded-lg border border-slate-200 px-3 text-sm"/><span className="mt-1 block font-normal text-slate-500">Use numbers such as 0001 or 0002. Each employee number must be unique.</span></label>
       <label className="block text-xs font-semibold">Full name<input required name="fullName" minLength={2} maxLength={120} defaultValue={employee.fullName} className="mt-2 block h-10 w-full rounded-lg border border-slate-200 px-3 text-sm" /></label>
       <label className="block text-xs font-semibold">Work email<input required type="email" name="workEmail" defaultValue={employee.workEmail} className="mt-2 block h-10 w-full rounded-lg border border-slate-200 px-3 text-sm" /></label>
       <div className="grid gap-4 sm:grid-cols-2">

@@ -5,6 +5,7 @@ import { db } from "../../lib/db";
 import { fail } from "../../lib/http";
 import { CertificateError, issueCertificate, revokeCertificate, verifyCertificate } from "./service";
 import { canIssueCertificates, certificatePublicSelect } from "./validation";
+import { canReadDocument } from "../documents/permissions";
 
 const headers = { "Cache-Control": "private, no-store", "Referrer-Policy": "no-referrer" };
 function response(data: unknown, status = 200) { return NextResponse.json({ data }, { status, headers }); }
@@ -22,8 +23,10 @@ export async function listCaseCertificates(_request: Request, { params }: CaseCo
   if (!canIssueCertificates(actor)) return errorResponse(403, "FORBIDDEN", "Only HR or the Owner can manage certificates.");
   try {
     const caseId = z.string().uuid().parse((await params).id);
-    if (!await db.offboardingCase.findUnique({ where: { id: caseId }, select: { id: true } })) return errorResponse(404, "NOT_FOUND", "Offboarding case not found.");
-    return response({ items: await db.employmentCertificate.findMany({ where: { caseId }, select: certificatePublicSelect, orderBy: { issuedAt: "desc" }, take: 100 }) });
+    const record = await db.offboardingCase.findUnique({ where: { id: caseId }, select: { employeeId: true } });
+    if (!record) return errorResponse(404, "NOT_FOUND", "Offboarding case not found.");
+    const documents = await db.employeeDocument.findMany({ where: { employeeId: record.employeeId, currentFile: { scanStatus: "CLEAN" } }, include: { currentFile: { select: { originalFilename: true } } }, orderBy: { createdAt: "desc" }, take: 200 });
+    return response({ items: await db.employmentCertificate.findMany({ where: { caseId }, select: certificatePublicSelect, orderBy: { issuedAt: "desc" }, take: 100 }), documents: documents.filter(document => canReadDocument(actor, document)).map(document => ({ id: document.id, category: document.category, filename: document.currentFile.originalFilename })) });
   } catch (error) { return failure(error); }
 }
 export async function createCaseCertificate(request: Request, { params }: CaseContext) {

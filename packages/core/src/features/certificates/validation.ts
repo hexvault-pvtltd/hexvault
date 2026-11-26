@@ -11,6 +11,7 @@ export const issueSchema = z.object({
   kind: z.enum(certificateKinds), title: z.string().trim().min(3).max(120),
   jobTitle: z.string().trim().min(2).max(120), statement: z.string().trim().min(20).max(4000),
   employmentStart: dateOnly, employmentEnd: dateOnly, dateOfBirth: birthDate,
+  documentId: z.string().uuid().optional(),
 }).strict().refine(value => value.employmentStart <= value.employmentEnd, { message: "Employment end must be on or after the start date.", path: ["employmentEnd"] });
 export const verifySchema = z.object({
   certificateId: z.string().trim().toUpperCase().regex(/^HV-[A-F0-9]{32}$/),
@@ -23,4 +24,5 @@ export function canIssueCertificates(actor: { roles: string[] }) { return actor.
 export const certificatePublicSelect = {
   certificateId: true, kind: true, title: true, recipientName: true, jobTitle: true,
   statement: true, employmentStart: true, employmentEnd: true, issuedAt: true, revokedAt: true,
+  file: { select: { originalFilename: true } },
 } as const;

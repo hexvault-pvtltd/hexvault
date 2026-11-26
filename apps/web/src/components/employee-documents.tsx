@@ -12,7 +12,7 @@ function CategoryPicker({defaultValue="General",name,onChange,disabled=false}:{d
  const update=(next:string)=>{setValue(next);onChange?.(next);};
  return <><select aria-label="Document category" name={custom?undefined:name} value={custom?"OTHER":value} disabled={disabled} onChange={event=>update(event.target.value==="OTHER"?"":event.target.value)} className="mt-2 block h-10 w-full rounded-lg border border-slate-200 bg-white px-3 text-sm">{categories.map(category=><option key={category} value={category}>{category}</option>)}<option value="OTHER">Other / custom category</option></select>{custom&&<input aria-label="Custom document category" name={name} value={value} required minLength={2} maxLength={80} disabled={disabled} onChange={event=>update(event.target.value)} placeholder="Enter category" className="mt-2 block h-10 w-full rounded-lg border border-slate-200 px-3 text-sm"/>}</>;
 }
-type QueuedDocument={id:string;file:File;name:string;category:string};
+type QueuedDocument={id:string;file:File;name:string;category:string;visibility:string};
 function fileExtension(name:string){const dot=name.lastIndexOf(".");return dot>0?name.slice(dot):"";}
 
 type Version={id:string;version:number;createdAt:string;file:{id:string;originalFilename:string;mimeType:string;sizeBytes:number;scanStatus:string}};
@@ -21,6 +21,7 @@ type EmployeeDocument={id:string;category:string;visibility:string;expiresAt:str
 export function EmployeeDocuments({employeeId,canUpload,canSetVisibility,owner,hr,isSelf}:{employeeId:string;canUpload:boolean;canSetVisibility:boolean;owner:boolean;hr:boolean;isSelf:boolean}){
  const [queue,setQueue]=useState<QueuedDocument[]>([]);
  const [defaultCategory,setDefaultCategory]=useState("General");
+ const [defaultVisibility,setDefaultVisibility]=useState("SELF");
  const [uploadProgress,setUploadProgress]=useState("");
  const [items,setItems]=useState<EmployeeDocument[]>([]);const [error,setError]=useState("");const [message,setMessage]=useState("");const [busy,setBusy]=useState(false);const [selected,setSelected]=useState<Record<string,File|null>>({});const [history,setHistory]=useState<Record<string,Version[]|null>>({});const [editing,setEditing]=useState("");
  async function refresh(){try{const response=await fetch(`/api/v1/employees/${employeeId}/documents`);const body=await response.json().catch(()=>null);if(response.ok)setItems(body?.data?.items??[]);else setError(body?.error?.message??"Unable to load documents.");}catch{setError("Unable to load documents.");}}
@@ -50,7 +51,7 @@ export function EmployeeDocuments({employeeId,canUpload,canSetVisibility,owner,h
     setUploadProgress("Uploading "+(index+1)+" of "+files.length+": "+file.name);
     try{
      const fileId=await stageFile(file,"EMPLOYEE_DOCUMENT",employeeId);
-     const response=await fetch(`/api/v1/employees/${employeeId}/documents`,{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify({fileId,category:item.category.trim(),visibility:values.visibility??"SELF",...(values.expiresAt?{expiresAt:values.expiresAt}:{})})});
+     const response=await fetch(`/api/v1/employees/${employeeId}/documents`,{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify({fileId,category:item.category.trim(),visibility:canSetVisibility?item.visibility:"SELF",...(values.expiresAt?{expiresAt:values.expiresAt}:{})})});
      const body=await response.json();
      if(!response.ok)throw new Error(body.error?.message??"Could not save the document.");
      saved++;
@@ -70,17 +71,18 @@ export function EmployeeDocuments({employeeId,canUpload,canSetVisibility,owner,h
  {canUpload&&<form onSubmit={createDocument} className="space-y-5 rounded-xl border border-slate-200 bg-white p-5">
   <div className="grid gap-4 md:grid-cols-2">
    <label className="text-xs font-semibold">Default category<CategoryPicker onChange={setDefaultCategory} disabled={busy}/><span className="mt-1 block font-normal text-slate-500">Used for files you select next. Change each file below if needed.</span></label>
-   <label className="text-xs font-semibold">Visibility<select name="visibility" disabled={busy||!canSetVisibility} defaultValue="SELF" className="mt-2 block h-10 w-full rounded-lg border border-slate-200 bg-white px-3 text-sm"><option value="SELF">Employee, HR and Owner</option>{canSetVisibility&&<option value="HR">HR and Owner</option>}{owner&&<option value="OWNER">Owner only</option>}</select></label>
+   <label className="text-xs font-semibold">Default visibility<select disabled={busy||!canSetVisibility} value={defaultVisibility} onChange={event=>setDefaultVisibility(event.target.value)} className="mt-2 block h-10 w-full rounded-lg border border-slate-200 bg-white px-3 text-sm"><option value="SELF">Employee, HR and Owner</option>{canSetVisibility&&<option value="HR">HR and Owner</option>}{owner&&<option value="OWNER">Owner only</option>}</select></label>
    <label className="text-xs font-semibold">Expiry date (optional)<input name="expiresAt" type="date" disabled={busy} className="mt-2 block h-10 w-full rounded-lg border border-slate-200 px-3 text-sm"/></label>
    <label className="text-xs font-semibold">Files (PDF, JPEG, PNG, WebP - up to 10 MB each)<input name="file" type="file" multiple disabled={busy} accept="application/pdf,image/jpeg,image/png,image/webp" onChange={event=>{
-    const added=Array.from(event.target.files??[]).map(file=>({id:crypto.randomUUID(),file,name:file.name.slice(0,file.name.length-fileExtension(file.name).length),category:defaultCategory}));
+    const added=Array.from(event.target.files??[]).map(file=>({id:crypto.randomUUID(),file,name:file.name.slice(0,file.name.length-fileExtension(file.name).length),category:defaultCategory,visibility:canSetVisibility?defaultVisibility:"SELF"}));
     setQueue(current=>[...current,...added.filter(item=>!current.some(existing=>existing.file.name===item.file.name&&existing.file.size===item.file.size&&existing.file.lastModified===item.file.lastModified))]);
     event.target.value="";setError("");
    }} className="mt-2 block w-full text-xs"/></label>
   </div>
-  {queue.length>0&&<div className="space-y-3"><p className="text-xs text-slate-500">Set a name and category for each file. Visibility and expiry date apply to the whole batch.</p>{queue.map(item=><div key={item.id} className="grid gap-3 rounded-lg border border-slate-200 p-3 md:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_auto]">
+  {queue.length>0&&<div className="space-y-3"><p className="text-xs text-slate-500">Set a name, category, and visibility for each file. The expiry date applies to the whole batch.</p>{queue.map(item=><div key={item.id} className="grid gap-3 rounded-lg border border-slate-200 p-3 md:grid-cols-2 xl:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_minmax(0,1fr)_auto]">
    <label className="min-w-0 text-xs font-semibold">File name<div className="mt-2 flex items-center gap-2"><input aria-label={"File name for "+item.file.name} value={item.name} required maxLength={180-fileExtension(item.file.name).length} disabled={busy} onChange={event=>setQueue(current=>current.map(row=>row.id===item.id?{...row,name:event.target.value}:row))} className="h-10 min-w-0 flex-1 rounded-lg border border-slate-200 px-3 text-sm"/><span className="text-slate-500">{fileExtension(item.file.name)}</span></div><span className="mt-1 block break-all font-normal text-slate-500">Original: {item.file.name} ({(item.file.size/1024/1024).toFixed(2)} MB)</span></label>
    <label className="text-xs font-semibold">Category<CategoryPicker defaultValue={item.category} disabled={busy} onChange={category=>setQueue(current=>current.map(row=>row.id===item.id?{...row,category}:row))}/></label>
+   <label className="text-xs font-semibold">Visibility<select aria-label={"Visibility for "+item.file.name} value={item.visibility} disabled={busy||!canSetVisibility} onChange={event=>setQueue(current=>current.map(row=>row.id===item.id?{...row,visibility:event.target.value}:row))} className="mt-2 block h-10 w-full rounded-lg border border-slate-200 bg-white px-3 text-sm"><option value="SELF">Employee, HR and Owner</option>{canSetVisibility&&<option value="HR">HR and Owner</option>}{owner&&<option value="OWNER">Owner only</option>}</select></label>
    <button type="button" disabled={busy} aria-label={"Remove "+item.file.name} onClick={()=>setQueue(current=>current.filter(row=>row.id!==item.id))} className="self-start rounded-lg border border-slate-200 px-3 py-2 text-xs font-semibold disabled:opacity-50 md:mt-6">Remove</button>
   </div>)}</div>}
   {uploadProgress&&<p role="status" className="text-xs text-slate-600">{uploadProgress}</p>}
