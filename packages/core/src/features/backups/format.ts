@@ -48,6 +48,30 @@ export function optionalForeignKeys(model: typeof backupModels[number]) {
   return model.fields.filter(field => field.kind === "object" && field.relationFromFields?.length && !field.isRequired).flatMap(field => field.relationFromFields ?? []);
 }
 
+// Build each referenced-key index once instead of scanning parent tables for
+// every row. Validate links before restore stages files or replaces records.
+export function validateReferences(tables: BackupPayload["tables"]) {
+  const indexes = new Map<string, Set<string>>();
+  for (const model of backupModels) {
+    for (const relation of model.fields.filter(field => field.kind === "object" && field.relationFromFields?.length)) {
+      const from = relation.relationFromFields!;
+      const to = relation.relationToFields!;
+      const indexKey = JSON.stringify([relation.type, to]);
+      let index = indexes.get(indexKey);
+      if (!index) {
+        if (!tables[relation.type]) throw new BackupError(422, `The backup is missing ${relation.type}.`);
+        index = new Set(tables[relation.type].map(row => JSON.stringify(to.map(key => row[key]))));
+        indexes.set(indexKey, index);
+      }
+      for (const row of tables[model.name]) {
+        const values = from.map(key => row[key]);
+        if (values.some(value => value === null)) continue;
+        if (!index.has(JSON.stringify(values))) throw new BackupError(422, `The backup contains a missing reference from ${model.name}.${relation.name} to ${relation.type}.`);
+      }
+    }
+  }
+}
+
 export function validateBackup(input: unknown): BackupEnvelope {
   const result = envelopeSchema.safeParse(input);
   if (!result.success) throw new BackupError(422, "Choose a valid HEXVAULT JSON backup file.");
@@ -76,6 +100,7 @@ export function validateBackup(input: unknown): BackupEnvelope {
       }
     }
   }
+  validateReferences(tables);
   // Prevent a successful restore from leaving the installation without a usable owner.
   const owners = tables.Role.filter(row => row.code === "OWNER").map(row => row.id);
   const ownerIds = tables.UserRole.filter(row => owners.includes(row.roleId) && row.revokedAt === null).map(row => row.userId);
@@ -83,9 +108,11 @@ export function validateBackup(input: unknown): BackupEnvelope {
     && !tables.Employee.some(employee => employee.userId === row.id && ["SUSPENDED", "EXITED"].includes(String(employee.lifecycleStatus))))) throw new BackupError(422, "The backup must contain an active owner account with a password.");
   if ((tables.ManagementNote.length || tables.ManagementNoteRevision.length) && (!backup.notesKeyFingerprint || backup.notesKeyFingerprint !== notesKeyFingerprint())) throw new BackupError(422, "The management notes encryption key does not match. Configure the original NOTES_ENCRYPTION_KEY before restoring.");
   const ids = new Set<string>();
+  const filesById = new Map(tables.File.map(row => [String(row.id), row]));
+  if (filesById.size !== tables.File.length) throw new BackupError(422, "The backup contains duplicate file records.");
   if (backup.payload.files.length !== tables.File.length) throw new BackupError(422, "The backup file inventory is incomplete.");
   for (const file of backup.payload.files) {
-    const record = tables.File.find(row => row.id === file.fileId);
+    const record = filesById.get(file.fileId);
     if (!record || ids.has(file.fileId)) throw new BackupError(422, "The backup file inventory is invalid.");
     ids.add(file.fileId);
     if (file.base64 === null) {

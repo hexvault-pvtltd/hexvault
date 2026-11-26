@@ -89,8 +89,9 @@ export async function restoreBackup(backup: BackupEnvelope, actorId: string) {
       await tx.$executeRawUnsafe(`LOCK TABLE ${tableList} IN ACCESS EXCLUSIVE MODE`);
       const recovery = await capture(tx, "RECOVERY", actorId);
       const tables = structuredClone(backup.payload.tables);
+      const filesById = new Map(tables.File.map(row => [String(row.id), row]));
       for (const file of backup.payload.files) {
-        const record = tables.File.find(row => row.id === file.fileId)!;
+        const record = filesById.get(file.fileId)!;
         // New immutable object keys keep existing/recovery files untouched if
         // anything fails, and never trust storage paths supplied in an upload.
         const key = `restored/${randomUUID()}/${file.fileId}`;
