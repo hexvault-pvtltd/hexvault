@@ -186,7 +186,7 @@ export function ChatPage({ selfId, roles }: { selfId: string; roles: string[] })
     const uploaded = await uploadPrivateFile(init.uploadUrl, init, file);
     if (!uploaded.ok) throw new Error("Private storage rejected the attachment.");
     const complete = await requestJson("/api/v1/files/upload-complete", json("POST", { fileId: init.fileId }));
-    if (complete.scanStatus !== "CLEAN") throw new Error("The attachment is waiting for security scanning.");
+    if (complete.scanStatus !== "CLEAN") throw new Error("The attachment has not completed upload verification.");
     return init.fileId as string;
   }
 

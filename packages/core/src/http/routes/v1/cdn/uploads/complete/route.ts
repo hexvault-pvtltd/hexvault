@@ -3,8 +3,8 @@ import { z } from "zod";
 import { currentUser } from "@core/lib/auth";
 import { db } from "@core/lib/db";
 import { canUploadToCdnFolder } from "@core/features/cdn/permissions";
-import { finalizeScannedFile } from "@core/features/files/finalize";
-import { MalwareScannerUnavailableError, MAX_CDN_UPLOAD_BYTES, readPrivateObject, scanWithClamAv, StorageConfigurationError } from "@core/lib/storage";
+import { finalizeValidatedFile } from "@core/features/files/finalize";
+import { MAX_CDN_UPLOAD_BYTES, readPrivateObject, StorageConfigurationError } from "@core/lib/storage";
 import { fail } from "@core/lib/http";
 import { NextRequest, NextResponse } from "next/server";
 
@@ -31,21 +31,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: { code: "UNPROCESSABLE_FILE", message: "File type, size, or checksum did not match the upload request." } }, { status: 422 });
     }
 
-    let verdict: "CLEAN" | "INFECTED";
-    try { verdict = await scanWithClamAv(object.bytes); }
-    catch (error) {
-      if (error instanceof MalwareScannerUnavailableError) {
-        await db.file.update({ where: { id: asset.file.id }, data: { scanStatus: "QUARANTINED" } });
-        return NextResponse.json({ error: { code: "SCANNER_UNAVAILABLE", message: "The file remains quarantined until malware scanning is available." } }, { status: 503 });
-      }
-      throw error;
-    }
-    if (verdict === "INFECTED") {
-      await db.file.update({ where: { id: asset.file.id }, data: { scanStatus: "REJECTED", checksum: digest } });
-      await db.auditLog.create({ data: { actorId: actor.id, action: "cdn.malware_detected", resourceType: "cdn_asset", resourceId: asset.id } });
-      return NextResponse.json({ error: { code: "UNPROCESSABLE_FILE", message: "The file was rejected by malware scanning." } }, { status: 422 });
-    }
-    const clean = await finalizeScannedFile(asset.file, object.bytes, actor.id, "cdn.upload_scanned", "cdn_asset", asset.id);
+    const clean = await finalizeValidatedFile(asset.file, object.bytes, actor.id, "cdn.upload_validated", "cdn_asset", asset.id);
     return NextResponse.json({ data: { fileId: clean.id, assetId: asset.id, scanStatus: clean.scanStatus, checksum: clean.checksum, sizeBytes: Number(clean.sizeBytes) } });
   } catch (error) {
     if (error instanceof z.ZodError) return NextResponse.json({ error: { code: "VALIDATION_ERROR", message: "Check the upload completion fields." } }, { status: 422 });

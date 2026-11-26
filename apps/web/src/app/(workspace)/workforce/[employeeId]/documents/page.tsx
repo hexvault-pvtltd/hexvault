@@ -14,5 +14,5 @@ export default async function EmployeeDocumentsPage({ params }: { params: Promis
   const owner = actor.roles.includes("OWNER");
   const hr = actor.roles.includes("HR");
   const isSelf = actor.employee?.id === employeeId;
-  return <><div className="mb-7"><p className="text-xs text-slate-400"><Link href={`/workforce/${employeeId}`} className="hover:text-slate-700">{employee.fullName}</Link> / Documents</p><h1 className="mt-2 text-2xl font-semibold">Employee documents</h1><p className="mt-1 text-sm text-slate-500">{employee.employeeCode} · Private files are access-controlled and malware-scanned before use.</p></div><EmployeeDocuments employeeId={employeeId} canUpload={owner||hr||isSelf} canSetVisibility={owner||hr} owner={owner} hr={hr} isSelf={isSelf}/></>;
+  return <><div className="mb-7"><p className="text-xs text-slate-400"><Link href={`/workforce/${employeeId}`} className="hover:text-slate-700">{employee.fullName}</Link> / Documents</p><h1 className="mt-2 text-2xl font-semibold">Employee documents</h1><p className="mt-1 text-sm text-slate-500">{employee.employeeCode} · Private files are access-controlled and validated before use.</p></div><EmployeeDocuments employeeId={employeeId} canUpload={owner||hr||isSelf} canSetVisibility={owner||hr} owner={owner} hr={hr} isSelf={isSelf}/></>;
 }

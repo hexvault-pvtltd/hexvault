@@ -1,15 +1,13 @@
 import { DeleteObjectCommand, GetObjectCommand, HeadObjectCommand, PutObjectCommand, S3Client } from "@aws-sdk/client-s3";
 import { createPresignedPost } from "@aws-sdk/s3-presigned-post";
 import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
-import { createConnection, Socket } from "node:net";
 import { compressForStorage, decompressStoredObject } from "./compression";
 
 export const MAX_UPLOAD_BYTES = 10 * 1024 * 1024;
 export const MAX_CDN_UPLOAD_BYTES = 50 * 1024 * 1024;
 export const ALLOWED_DOCUMENT_TYPES = ["application/pdf", "image/jpeg", "image/png", "image/webp"] as const;
-export const ALLOWED_SCANNED_FILE_TYPES = [...ALLOWED_DOCUMENT_TYPES, "audio/webm", "audio/ogg", "audio/mp4"] as const;
+export const ALLOWED_VERIFIED_FILE_TYPES = [...ALLOWED_DOCUMENT_TYPES, "audio/webm", "audio/ogg", "audio/mp4"] as const;
 export class StorageConfigurationError extends Error {}
-export class MalwareScannerUnavailableError extends Error {}
 let s3: S3Client | undefined;
 let browserSigningClient: S3Client | undefined;
 
@@ -67,41 +65,6 @@ export function hasAllowedSignature(bytes: Uint8Array, mimeType: string) {
   if (mimeType === "audio/ogg") return Buffer.from(bytes.subarray(0, 4)).toString("ascii") === "OggS";
   if (mimeType === "audio/mp4") return Buffer.from(bytes.subarray(4, 8)).toString("ascii") === "ftyp";
   return false;
-}
-
-export async function scanWithClamAv(bytes: Buffer): Promise<"CLEAN" | "INFECTED"> {
-  const host = process.env.CLAMAV_HOST;
-  const port = Number(process.env.CLAMAV_PORT || "3310");
-  if (!host || !Number.isInteger(port) || port < 1 || port > 65535) throw new MalwareScannerUnavailableError("Malware scanning is not configured.");
-  return new Promise((resolve, reject) => {
-    let settled = false;
-    let response = "";
-    const socket: Socket = createConnection({ host, port });
-    const finish = (error?: Error, verdict?: "CLEAN" | "INFECTED") => {
-      if (settled) return;
-      settled = true;
-      socket.destroy();
-      if (error) reject(error); else resolve(verdict!);
-    };
-    socket.setTimeout(20_000, () => finish(new MalwareScannerUnavailableError("Malware scanner timed out.")));
-    socket.once("error", () => finish(new MalwareScannerUnavailableError("Malware scanner is unavailable.")));
-    socket.on("data", chunk => {
-      response += chunk.toString("utf8");
-      if (!response.includes("\0")) return;
-      if (response.includes("FOUND")) finish(undefined, "INFECTED");
-      else if (response.includes("OK")) finish(undefined, "CLEAN");
-      else finish(new MalwareScannerUnavailableError("Malware scanner returned an unknown response."));
-    });
-    socket.once("connect", () => {
-      socket.write(Buffer.from("zINSTREAM\0", "ascii"));
-      for (let offset = 0; offset < bytes.length; offset += 64 * 1024) {
-        const part = bytes.subarray(offset, Math.min(offset + 64 * 1024, bytes.length));
-        const length = Buffer.alloc(4); length.writeUInt32BE(part.length);
-        socket.write(length); socket.write(part);
-      }
-      socket.write(Buffer.alloc(4));
-    });
-  });
 }
 
 export async function createPrivateDownload(key: string, filename: string, mode: "attachment" | "inline" = "attachment", expiresInSeconds = 60) {

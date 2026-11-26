@@ -4,8 +4,8 @@ import { db } from "@core/lib/db";
 import { deletePrivateObject, writePrivateObject } from "@core/lib/storage";
 
 // Final uploads use fresh server-written keys. A still-valid upload URL cannot
-// overwrite a file after it has passed scanning and compression.
-export async function finalizeScannedFile(file: File, bytes: Buffer, actorId: string, action: string, resourceType = "file", resourceId = file.id) {
+// overwrite a file after it has passed validation and compression.
+export async function finalizeValidatedFile(file: File, bytes: Buffer, actorId: string, action: string, resourceType = "file", resourceId = file.id) {
   const key = `files/${file.id}/${randomUUID()}`;
   const checksum = createHash("sha256").update(bytes).digest("hex");
   const stored = await writePrivateObject(key, bytes, file.mimeType);
