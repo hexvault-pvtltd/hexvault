@@ -31,7 +31,7 @@ export function CertificateVerification({ initialCertificateId = "" }: { initial
       <section className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm sm:p-8 print:hidden">
         <h1 className="text-2xl font-semibold">Verify your certificate</h1><p className="mt-2 text-sm leading-6 text-slate-500">Enter the certificate ID supplied by HEXVAULT and your date of birth. You can verify without signing in, including after your employment ends.</p>
         <form onSubmit={verify} onChange={() => { setResult(null); setError(""); }} className="mt-6 space-y-4">
-          <label className="block text-sm font-medium">Certificate ID<input required autoComplete="off" name="certificateId" maxLength={35} value={certificateId} onChange={event => setCertificateId(event.target.value.toUpperCase())} placeholder="HV-..." className="mt-2 w-full rounded-lg border border-slate-300 px-3 py-3 font-mono text-sm"/></label>
+          <label className="block text-sm font-medium">Certificate ID<input required autoComplete="off" name="certificateId" maxLength={80} value={certificateId} onChange={event => setCertificateId(event.target.value.toUpperCase())} placeholder="HV-INTERN-2026-0005" className="mt-2 w-full rounded-lg border border-slate-300 px-3 py-3 font-mono text-sm"/></label>
           <label className="block text-sm font-medium">Date of birth<input required autoComplete="off" name="dateOfBirth" type="date" className="mt-2 w-full rounded-lg border border-slate-300 px-3 py-3 text-sm"/></label>
           <button disabled={busy} className="w-full rounded-lg bg-[#f46327] px-4 py-3 text-sm font-semibold text-white disabled:opacity-50">{busy ? "Verifying..." : "Verify certificate"}</button>
         </form>

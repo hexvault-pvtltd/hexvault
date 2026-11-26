@@ -1133,6 +1133,7 @@ model BackupSchedule {
 model EmploymentCertificate {
   id String @id @default(uuid()) @db.Uuid
   certificateId String @unique
+  verificationAlias String? @unique
   employeeId String @db.Uuid
   employee Employee @relation(fields: [employeeId], references: [id])
   caseId String @db.Uuid

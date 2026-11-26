@@ -35,6 +35,7 @@ export function EmploymentCertificates({ caseId, complete, jobTitle, endDate }: 
     const form = event.currentTarget;
     const data = Object.fromEntries(new FormData(form));
     if (!data.documentId) delete data.documentId;
+    if (!data.certificateId) delete data.certificateId;
     setBusy(true); setError(""); setMessage("");
     try {
       const response = await fetch(endpoint, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(data) });
@@ -64,6 +65,7 @@ export function EmploymentCertificates({ caseId, complete, jobTitle, endDate }: 
     {caseId && complete && <form onSubmit={issue} className="grid gap-4 rounded-lg bg-slate-50 p-4 md:grid-cols-2">
       <label className="text-xs font-semibold">Certificate type<select name="kind" className={field}><option value="EXPERIENCE">Experience</option><option value="RELIEVING">Relieving</option><option value="INTERNSHIP">Internship completion</option><option value="OTHER">Other</option></select></label>
       <label className="text-xs font-semibold">Certificate title<input required name="title" minLength={3} maxLength={120} placeholder="Experience certificate" className={field}/></label>
+      <label className="text-xs font-semibold md:col-span-2">Certificate ID (optional)<input name="certificateId" maxLength={80} placeholder="HV-INTERN-2026-0005" className={field}/><span className="mt-1 block font-normal text-slate-500">Leave blank to use the certificate type, employment end year, and employee number. For example: HV-INTERN-2026-0005. Enter the ID printed on your original certificate here if needed. Reissues receive a suffix such as -02.</span></label>
       <div className="md:col-span-2"><label className="text-xs font-semibold">Original certificate document (optional)<select name="documentId" className={field}><option value="">No original file attached</option>{documents.map(document=><option key={document.id} value={document.id}>{document.filename} - {document.category}</option>)}</select></label><p className="mt-2 text-xs text-slate-500">Upload the signed original under Supporting employee documents below, then refresh this list. The selected original is shared after certificate ID and date-of-birth verification, regardless of the supporting document visibility.</p><button type="button" disabled={busy} onClick={()=>{setError("");load().catch(error=>setError(error instanceof Error?error.message:"Unable to refresh documents."));}} className="mt-2 rounded-lg border border-slate-200 px-3 py-2 text-xs">Refresh uploaded documents</button></div>
       <label className="text-xs font-semibold">Job title<input required name="jobTitle" minLength={2} maxLength={120} defaultValue={jobTitle} className={field}/></label>
       <label className="text-xs font-semibold">Employee date of birth<input required name="dateOfBirth" type="date" min="1900-01-01" className={field}/><span className="mt-1 block font-normal text-slate-500">Confirm with the employee. Stored as a verification hash.</span></label>

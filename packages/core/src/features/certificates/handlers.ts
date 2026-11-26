@@ -4,7 +4,7 @@ import { currentUser } from "../../lib/auth";
 import { db } from "../../lib/db";
 import { fail } from "../../lib/http";
 import { CertificateError, issueCertificate, revokeCertificate, verifyCertificate } from "./service";
-import { canIssueCertificates, certificatePublicSelect } from "./validation";
+import { canIssueCertificates, certificatePublicSelect, certificateIdSchema } from "./validation";
 import { canReadDocument } from "../documents/permissions";
 
 const headers = { "Cache-Control": "private, no-store", "Referrer-Policy": "no-referrer" };
@@ -44,7 +44,7 @@ export async function revoke(request: Request, { params }: { params: Promise<{ c
   if (!canIssueCertificates(actor)) return errorResponse(403, "FORBIDDEN", "Only HR or the Owner can revoke certificates.");
   try {
     z.object({ action: z.literal("REVOKE") }).strict().parse(await request.json());
-    const id = z.string().regex(/^HV-[A-F0-9]{32}$/).parse((await params).certificateId);
+    const id = certificateIdSchema.parse((await params).certificateId);
     return response(await revokeCertificate(actor, id));
   } catch (error) { return failure(error); }
 }
