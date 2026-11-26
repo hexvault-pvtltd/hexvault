@@ -17,7 +17,7 @@ export async function issueCertificate(actor: Actor, caseId: string, input: unkn
     if (!record) throw new CertificateError(404, "NOT_FOUND", "Offboarding case not found.");
     if (record.status !== "COMPLETE") throw new CertificateError(409, "OFFBOARDING_INCOMPLETE", "Finalize offboarding before issuing a certificate.");
     const document = data.documentId ? await tx.employeeDocument.findUnique({ where: { id: data.documentId }, include: { currentFile: true } }) : null;
-    if (data.documentId && (!document || document.employeeId !== record.employeeId || !canReadDocument(actor, document) || document.currentFile.scanStatus !== "CLEAN")) {
+    if (data.documentId && (!document || document.employeeId !== record.employeeId || !canReadDocument(actor, document) || document.currentFile.scanStatus !== "CLEAN" || document.currentFile.mimeType === "application/zip")) {
       throw new CertificateError(422, "INVALID_CERTIFICATE_FILE", "Choose a verified document belonging to this employee that you can access.");
     }
     if (data.employmentEnd > record.effectiveDate.toISOString().slice(0, 10) || data.employmentEnd > new Date().toISOString().slice(0, 10)) {

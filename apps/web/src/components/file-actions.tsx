@@ -3,6 +3,7 @@
 import Image from "next/image";
 import { useEffect, useRef, useState } from "react";
 import { Download, Eye, X } from "lucide-react";
+import { StoredArchiveActions, type ArchiveImport } from "./employee-document-archives";
 
 type Preview = { url: string; previewable: boolean; filename: string; mimeType: string; sizeBytes: number };
 async function fileUrl(fileId: string, preview: boolean): Promise<Preview> {
@@ -49,7 +50,7 @@ function FilePreview({ fileId, filename, onClose }: { fileId: string; filename: 
   </dialog>;
 }
 
-export function FileActions({ fileId, filename }: { fileId: string; filename: string }) {
+export function FileActions({ fileId, filename, onExtract }: { fileId: string; filename: string; onExtract?: ArchiveImport }) {
   const [open, setOpen] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
@@ -59,5 +60,5 @@ export function FileActions({ fileId, filename }: { fileId: string; filename: st
     catch (error) { setError(error instanceof Error ? error.message : "Download unavailable."); }
     finally { setBusy(false); }
   }
-  return <div className="flex flex-wrap items-center gap-2"><button type="button" onClick={() => setOpen(true)} className="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 px-3 py-2 text-[11px] font-semibold"><Eye size={12}/>Preview</button><button type="button" disabled={busy} onClick={download} className="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 px-3 py-2 text-[11px] font-semibold disabled:opacity-50"><Download size={12}/>{busy ? "Preparing…" : "Download"}</button>{error && <p role="alert" className="w-full text-xs text-rose-600">{error}</p>}{open && <FilePreview fileId={fileId} filename={filename} onClose={() => setOpen(false)}/>}</div>;
+  return filename.toLowerCase().endsWith(".zip") ? <StoredArchiveActions fileId={fileId} filename={filename} onImport={onExtract}/> : <div className="flex flex-wrap items-center gap-2"><button type="button" onClick={() => setOpen(true)} className="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 px-3 py-2 text-[11px] font-semibold"><Eye size={12}/>Preview</button><button type="button" disabled={busy} onClick={download} className="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 px-3 py-2 text-[11px] font-semibold disabled:opacity-50"><Download size={12}/>{busy ? "Preparing…" : "Download"}</button>{error && <p role="alert" className="w-full text-xs text-rose-600">{error}</p>}{open && <FilePreview fileId={fileId} filename={filename} onClose={() => setOpen(false)}/>}</div>;
 }

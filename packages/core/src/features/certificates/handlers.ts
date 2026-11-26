@@ -25,7 +25,7 @@ export async function listCaseCertificates(_request: Request, { params }: CaseCo
     const caseId = z.string().uuid().parse((await params).id);
     const record = await db.offboardingCase.findUnique({ where: { id: caseId }, select: { employeeId: true } });
     if (!record) return errorResponse(404, "NOT_FOUND", "Offboarding case not found.");
-    const documents = await db.employeeDocument.findMany({ where: { employeeId: record.employeeId, currentFile: { scanStatus: "CLEAN" } }, include: { currentFile: { select: { originalFilename: true } } }, orderBy: { createdAt: "desc" }, take: 200 });
+    const documents = await db.employeeDocument.findMany({ where: { employeeId: record.employeeId, currentFile: { scanStatus: "CLEAN", mimeType: { not: "application/zip" } } }, include: { currentFile: { select: { originalFilename: true } } }, orderBy: { createdAt: "desc" }, take: 200 });
     return response({ items: await db.employmentCertificate.findMany({ where: { caseId }, select: certificatePublicSelect, orderBy: { issuedAt: "desc" }, take: 100 }), documents: documents.filter(document => canReadDocument(actor, document)).map(document => ({ id: document.id, category: document.category, filename: document.currentFile.originalFilename })) });
   } catch (error) { return failure(error); }
 }

@@ -5,7 +5,7 @@ import { compressForStorage, decompressStoredObject } from "./compression";
 
 export const MAX_UPLOAD_BYTES = 10 * 1024 * 1024;
 export const MAX_CDN_UPLOAD_BYTES = 50 * 1024 * 1024;
-export const ALLOWED_DOCUMENT_TYPES = ["application/pdf", "image/jpeg", "image/png", "image/webp"] as const;
+export const ALLOWED_DOCUMENT_TYPES = ["application/pdf", "image/jpeg", "image/png", "image/webp", "application/zip"] as const;
 export const ALLOWED_VERIFIED_FILE_TYPES = [...ALLOWED_DOCUMENT_TYPES, "audio/webm", "audio/ogg", "audio/mp4"] as const;
 export class StorageConfigurationError extends Error {}
 let s3: S3Client | undefined;
@@ -57,6 +57,7 @@ export async function readPrivateObject(key: string, maxBytes = MAX_UPLOAD_BYTES
   return { bytes, contentLength: bytes.length, storedLength: stored.length, optimized: head.Metadata?.["hv-optimized"] === "1", contentType: head.ContentType ?? "" };
 }
 export function hasAllowedSignature(bytes: Uint8Array, mimeType: string) {
+  if (mimeType === "application/zip") return bytes[0] === 0x50 && bytes[1] === 0x4b && bytes[2] === 0x03 && bytes[3] === 0x04;
   if (mimeType === "application/pdf") return Buffer.from(bytes.subarray(0, 5)).toString("ascii") === "%PDF-";
   if (mimeType === "image/png") return Buffer.from(bytes.subarray(0, 8)).equals(Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]));
   if (mimeType === "image/jpeg") return bytes[0] === 0xff && bytes[1] === 0xd8 && bytes[2] === 0xff;
