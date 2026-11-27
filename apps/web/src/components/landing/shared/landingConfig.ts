@@ -1,3 +1,4 @@
+import { approvedProducts } from "./companyPages";
 export const landingInfo = {
   products: { title: "Our products", description: "Product names and details will be added here." },
   pricing: { title: "Pricing", description: "Pricing details will be published here." },
@@ -13,5 +14,5 @@ export const landingInfo = {
 export type LandingInfoKey = keyof typeof landingInfo;
 export type OpenLandingInfo = (key: LandingInfoKey) => void;
 
-// Company product names and public destinations are awaiting owner-provided details.
-export const landingProducts: { name: string; description: string; href: string }[] = [];
+// Owner-supplied product descriptions retain their development/proposal status.
+export const landingProducts = approvedProducts.map(({content,href})=>({name:content.title,description:content.status??"Planned",href}));

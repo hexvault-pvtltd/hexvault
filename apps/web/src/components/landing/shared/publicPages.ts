@@ -1,9 +1,16 @@
+import { companyCopy } from "./companyCopy";
+import type { CompanyBlock } from "./websiteContent";
+import { companyPages } from "./companyPages";
+
 export type PublicPage = {
   category: string;
   title: string;
   description: string;
   sections: { title: string; text: string }[];
   related?: { label: string; href: string }[];
+  content?: CompanyBlock;
+  cardLinks?: Record<string,string>;
+  faq?: boolean;
 };
 
 function service(title: string, description: string, focus: string, delivery: string): PublicPage {
@@ -36,12 +43,13 @@ export const publicPages: Record<string, PublicPage> = {
   "ai-automation": service("AI & Automation", "Turn repetitive steps into practical, connected workflows.", "AI-assisted workflows, connected tools, and task automation. We focus on a defined use case with clear inputs, useful outputs, and an understandable review step.", "We discuss the data involved, permissions, and how success will be evaluated. A focused first version helps establish where automation adds value and where human review is needed."),
   "product-engineering": service("Product Engineering", "From an early idea to working software your team can build on.", "Product discovery, interface design, application development, and integrations. We bring the product experience and technical foundations into one plan.", "We define the first useful release together, then build in reviewable steps. Launch preparation and handover are part of the delivery conversation."),
   about: {
-    category: "Company", title: "Great software. Built together.",
-    description: "HEXVAULT brings design, engineering, and automation into one conversation. We build resilient, readable, and scalable systems for real-world work.",
+    category: "Company", title: companyCopy.headline,
+    description: companyCopy.introduction,
     sections: [
-      { title: "Keep the work connected", text: "Software delivery involves people, decisions, and context. We aim to keep tasks, conversations, and project updates connected so everyone can understand the next step." },
-      { title: "Clear ownership", text: "Defined responsibilities and appropriate access help a team collaborate. We discuss the roles, review process, and operational responsibilities a project needs." },
-      { title: "Progress you can review", text: "Working software gives a team something concrete to assess. Shared milestones and regular feedback guide the next iteration." },
+      { title: "Our purpose", text: companyCopy.purpose },
+      { title: "Our digital ecosystem", text: companyCopy.ecosystem },
+      { title: "Growing our capabilities", text: companyCopy.progress },
+      { title: companyCopy.motto, text: companyCopy.closing },
     ], related: [{ label: "How we work", href: "/process" }, { label: "Careers", href: "/careers" }],
   },
   process: {
@@ -106,4 +114,6 @@ export const publicPages: Record<string, PublicPage> = {
   "acceptable-use": policy("Acceptable Use Policy", "Information about permitted use requirements for HEXVAULT services."),
   "data-processing": policy("Data Processing Agreement", "Information about requesting data processing terms for your engagement."),
   sla: policy("Service Level Agreement", "Information about requesting service commitments for your engagement."),
+  "responsible-disclosure": policy("Responsible Disclosure Policy", "Contact HEXVAULT to request the applicable vulnerability reporting and disclosure process."),
 };
+Object.assign(publicPages,companyPages);
