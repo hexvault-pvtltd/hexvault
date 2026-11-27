@@ -1,5 +1,7 @@
 "use client";
 
+import { DocxPreview } from "./docx-preview";
+import { DOCX_MIME } from "@core/features/documents/formats";
 import Image from "next/image";
 import { useEffect, useRef, useState } from "react";
 import { Download, Eye, X } from "lucide-react";
@@ -42,7 +44,7 @@ function FilePreview({ fileId, filename, onClose }: { fileId: string; filename: 
     <div className="flex min-h-60 max-h-[75dvh] items-center justify-center overflow-auto bg-slate-50 p-3">
       {!file && !error && <p role="status" className="text-sm text-slate-500">Loading original file…</p>}
       {file && !file.previewable && <p className="max-w-md p-6 text-center text-sm leading-6 text-slate-500">This format cannot be previewed in the browser. Download the original file to open it in a compatible app.</p>}
-      {file?.previewable && (file.mimeType.startsWith("image/") ? <Image src={file.url} alt={filename} width={1200} height={900} unoptimized className="max-h-[70dvh] w-auto max-w-full object-contain"/>
+      {file?.previewable && (file.mimeType===DOCX_MIME ? <DocxPreview key={file.url} url={file.url}/> : file.mimeType.startsWith("image/") ? <Image src={file.url} alt={filename} width={1200} height={900} unoptimized className="max-h-[70dvh] w-auto max-w-full object-contain"/>
         : file.mimeType.startsWith("audio/") ? <audio src={file.url} controls preload="metadata" aria-label={filename} className="w-full max-w-xl"/>
         : file.mimeType.startsWith("video/") ? <video src={file.url} controls preload="metadata" aria-label={filename} className="max-h-[70dvh] max-w-full"><track kind="captions" label="Captions"/></video>
         : <iframe title={`Preview ${filename}`} src={file.url} referrerPolicy="no-referrer" className="h-[70dvh] w-full rounded-lg border-0 bg-white"/>)}

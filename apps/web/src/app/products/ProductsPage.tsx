@@ -4,7 +4,7 @@ import Image from "next/image";
 import Link from "next/link";
 import { ArrowLeft, ArrowRight, ArrowUpRight, Menu, X } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
-import CompanyProductRoadmap, { approvedProductStatus } from "@/components/landing/shared/CompanyProductRoadmap";
+import CompanyProductRoadmap, { approvedProductStatus, approvedProductAnchor } from "@/components/landing/shared/CompanyProductRoadmap";
 import { CompanyStatus } from "@/components/landing/shared/CompanyContent";
 import LandingFooter from "@/components/landing/footer/LandingFooter";
 import LandingLogo from "@/components/landing/shared/LandingLogo";
@@ -38,6 +38,17 @@ export default function ProductsPage() {
       .catch(() => { if (!controller.signal.aborted) { setLoadError(true); setLoading(false); } });
     return () => controller.abort();
   }, [reload]);
+  useEffect(()=>{
+    let scrollFrame=0;
+    const selectLinkedProduct=()=>{
+      const anchor=window.location.hash.slice(1);
+      const index=products.findIndex(item=>approvedProductAnchor(item.name)===anchor);
+      if(index>=0){setActive(index);scrollFrame=requestAnimationFrame(()=>document.getElementById(anchor)?.scrollIntoView({block:"start"}));}
+    };
+    const initialFrame=requestAnimationFrame(selectLinkedProduct);
+    window.addEventListener("hashchange",selectLinkedProduct);
+    return()=>{cancelAnimationFrame(initialFrame);cancelAnimationFrame(scrollFrame);window.removeEventListener("hashchange",selectLinkedProduct);};
+  },[products]);
   const showDialog = (content: typeof dialogContent) => {
     trigger.current = document.activeElement as HTMLElement;
     setDialogContent(content);
@@ -56,7 +67,7 @@ export default function ProductsPage() {
             <Link href="/careers">Careers</Link>
             <Link href="/about">About</Link>
             <Link href="/contact">Contact</Link>
-            <Link href="/about">Why HexVault</Link>
+
           </div>
           <Link href="/contact" className="products-project">Start a project <ArrowUpRight size={20} /></Link>
           <button className="products-menu" aria-label={menuOpen ? "Close navigation" : "Open navigation"} aria-expanded={menuOpen} aria-controls="products-navigation" onClick={() => setMenuOpen(!menuOpen)}>{menuOpen ? <X /> : <Menu />}</button>
@@ -78,7 +89,7 @@ export default function ProductsPage() {
         <div className="products-peek products-peek-right" aria-hidden="true"><ProductMark /><span>{next.name}</span></div>
         <button className="products-arrow products-arrow-left" aria-label="Previous product" onClick={() => move(-1)}><ArrowLeft /></button></>}
         <div className="products-slide" aria-live="polite" aria-atomic="true">
-          <article className="products-card" key={product.id} aria-roledescription="slide" aria-label={`${active + 1} of ${products.length}: ${product.name}`}>
+          <article id={approvedProductAnchor(product.name)} className="products-card" key={product.id} aria-roledescription="slide" aria-label={`${active + 1} of ${products.length}: ${product.name}`}>
             <div className="products-art products-owner-art">
               {product.imageUrl ? <Image src={product.imageUrl} alt={product.imageAlt || product.name} width={800} height={800} unoptimized draggable={false} /> : <span className="products-image-placeholder" aria-hidden="true"><ProductMark /></span>}
             </div>

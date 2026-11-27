@@ -16,7 +16,7 @@
 .hf-faq details[open] svg { transform: rotate(180deg); }
 .hf-faq p { margin: 0; padding: 0 24px 22px; color: #c5b8ad; line-height: 1.6; }
 .hf-faq p a { text-decoration: underline; }
-.hf-grid { display: grid; grid-template-columns: minmax(0,1.8fr) repeat(5,minmax(0,1fr)); column-gap: 2.4vw; row-gap: 34px; margin: 0 auto; max-width: 1700px; }
+.hf-grid { display: grid; grid-template-columns: minmax(0,2fr) repeat(2,minmax(0,1fr)); column-gap: 2.4vw; row-gap: 34px; margin: 0 auto; max-width: 1700px; }
 .hv-site-footer-with-faq .hf-grid { margin-top: clamp(64px,7vw,112px); }
 .hf-brand .hv-logo { gap: 17px; font-weight: 700; font-size: clamp(23px,2.1vw,38px); letter-spacing: .14em; color: white; }
 .hf-brand .hv-logo-mark { width: 56px; height: 60px; }
@@ -41,7 +41,7 @@
 .hf-availability p { max-width: 1000px; margin: 0 0 10px; }
 .hf-availability a { color: #efac7e; text-decoration: underline; text-underline-offset: 4px; }
 @media(max-width:1000px) {
-  .hf-grid { grid-template-columns: repeat(4,1fr); }
+  .hf-grid { grid-template-columns: repeat(2,minmax(0,1fr)); }
   .hv-site-footer-with-faq .hf-grid { margin-top: 72px; }
   .hf-brand { grid-column: 1/-1; }
 }
@@ -57,3 +57,7 @@
   .hf-watermark { margin-top: 30px; }
 }
 @media (prefers-reduced-motion: reduce) { .hf-faq details, .hf-faq svg { transition: none; } }
+
+.hf-more-faq > details { margin: 0 16px 12px; }
+.hf-more-faq > details:first-of-type { margin-top: 12px; }
+#faq { scroll-margin-top: 100px; }

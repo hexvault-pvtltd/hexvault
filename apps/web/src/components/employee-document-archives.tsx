@@ -1,5 +1,7 @@
 "use client";
 
+import { DocxPreview } from "./docx-preview";
+import { DOCX_MIME } from "@core/features/documents/formats";
 import Image from "next/image";
 import { useEffect, useRef, useState } from "react";
 import { createDocumentArchive, readDocumentArchive, archiveVisibility, MAX_ARCHIVE_BYTES, type ArchiveDocument } from "@core/features/documents/archive";
@@ -42,7 +44,7 @@ function ArchiveViewer({documents,name,onClose,onImport}:{documents:ArchiveDocum
       <button type="button" onClick={()=>saveBlob(archiveFile(document),document.filename)} className={button}>Download</button>
     </div>)}</div>
     {onImport&&<button type="button" disabled={!selected.size} onClick={()=>{onImport(documents.filter(document=>selected.has(document.path)));onClose();}} className={button+" mt-4"}>Unzip {selected.size} selected to upload form</button>}
-    {preview&&<section className="mt-5 rounded-lg border border-slate-200 p-3"><div className="mb-3 flex items-center justify-between gap-3"><h3 className="break-all text-sm font-semibold">{preview.name}</h3><button type="button" onClick={()=>setPreview(null)} className={button}>Close preview</button></div>{preview.mimeType.startsWith("image/")?<Image src={preview.url} alt={preview.name} width={1200} height={900} unoptimized className="max-h-[60dvh] w-auto max-w-full object-contain"/>:<iframe title={"Preview "+preview.name} src={preview.url} className="h-[60dvh] w-full border-0"/>}</section>}
+    {preview&&<section className="mt-5 rounded-lg border border-slate-200 p-3"><div className="mb-3 flex items-center justify-between gap-3"><h3 className="break-all text-sm font-semibold">{preview.name}</h3><button type="button" onClick={()=>setPreview(null)} className={button}>Close preview</button></div>{preview.mimeType===DOCX_MIME?<DocxPreview key={preview.url} url={preview.url}/>:preview.mimeType.startsWith("image/")?<Image src={preview.url} alt={preview.name} width={1200} height={900} unoptimized className="max-h-[60dvh] w-auto max-w-full object-contain"/>:<iframe title={"Preview "+preview.name} src={preview.url} className="h-[60dvh] w-full border-0"/>}</section>}
   </dialog>;
 }
 

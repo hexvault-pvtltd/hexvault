@@ -4,39 +4,10 @@ import Link from "next/link";
 import { Menu, X } from "lucide-react";
 import { useEffect, useRef } from "react";
 import LandingLogo from "../shared/LandingLogo";
-import { landingProducts } from "../shared/landingConfig";
-import NavigationDropdown from "./NavigationDropdown";
+import { mainNavigation } from "../shared/siteStructure";
 
-function NavigationLinks({ onNavigate }: { onNavigate: () => void }) {
-  return (
-    <>
-      <NavigationDropdown label="Products">
-        <Link href="/products" onClick={onNavigate}><strong>Explore our products</strong><span>Tools and platforms built for scale.</span></Link>
-        {landingProducts.length ? landingProducts.map(product => (
-          <Link href={product.href} key={product.name} onClick={onNavigate}><strong>{product.name}</strong><span>{product.description}</span></Link>
-        )) : null}
-      </NavigationDropdown>
-      <Link href="/services" onClick={onNavigate}>Services</Link>
-      <Link href="/pricing" onClick={onNavigate}>Pricing</Link>
-      <NavigationDropdown label="Resources">
-        <Link href="/process" onClick={onNavigate}>How we work</Link>
-        <Link href="/careers" onClick={onNavigate}>Careers</Link>
-        <Link href="/documentation" onClick={onNavigate}>Documentation</Link>
-        <Link href="/guides" onClick={onNavigate}>Guides</Link>
-        <Link href="/support" onClick={onNavigate}>Support</Link>
-        <Link href="/community" onClick={onNavigate}>Community Guidelines</Link>
-        <Link href="/resources" onClick={onNavigate}>Knowledge Centre</Link>
-        <Link href="/expertise" onClick={onNavigate}>Our Expertise</Link>
-        <Link href="/technologies" onClick={onNavigate}>Technologies</Link>
-        <Link href="/industries" onClick={onNavigate}>Industries</Link>
-        <Link href="/research" onClick={onNavigate}>Research &amp; Development</Link>
-        <Link href="/global-services" onClick={onNavigate}>Global Technology Services</Link>
-        <Link href="/faq" onClick={onNavigate}>FAQs</Link>
-      </NavigationDropdown>
-      <NavigationDropdown label="Company"><Link href="/about" onClick={onNavigate}>About HEXVAULT</Link><Link href="/purpose" onClick={onNavigate}>Our Purpose</Link><Link href="/vision" onClick={onNavigate}>Our Vision</Link><Link href="/mission" onClick={onNavigate}>Our Mission</Link><Link href="/values" onClick={onNavigate}>Our Values</Link><Link href="/our-teams" onClick={onNavigate}>Our Teams</Link><Link href="/roadmap" onClick={onNavigate}>Roadmap</Link><Link href="/partnerships" onClick={onNavigate}>Partnerships</Link></NavigationDropdown>
-    </>
-  );
-}
+
+function NavigationLinks({onNavigate}:{onNavigate:()=>void}){return <>{mainNavigation.filter(link=>link.href!=="/contact").map(link=><Link key={link.href} href={link.href} onClick={onNavigate}>{link.label}</Link>)}</>;}
 
 export default function LandingNavbar() {
   const headerRef = useRef<HTMLElement>(null);

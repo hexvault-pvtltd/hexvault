@@ -22,3 +22,9 @@
 .cc-product-roadmap > h2 { margin: 12px 0 26px; color: #f4ede7; font-size: clamp(30px,4vw,48px); font-weight: 500; letter-spacing: -.04em; }
 .cc-eyebrow { color: #f49a65; font-size: 11px; text-transform: uppercase; letter-spacing: .16em; }
 @media(max-width:680px) { .cc-section { grid-template-columns: 25px minmax(0,1fr); gap: 12px; } .cc-card { padding: 22px; } .cc-content p { font-size: 15px; } }
+
+.cc-question { scroll-margin-top: 110px; }
+.cc-question-title { flex: 1; color: inherit; }
+.cc-question summary .cc-status { margin: 0; font-size: 11px; }
+.cc-question:target { border-color: #eb8a50; }
+@media(max-width:600px) { .cc-question summary { flex-wrap: wrap; gap: 12px; } .cc-question-title { flex-basis: 70%; } }

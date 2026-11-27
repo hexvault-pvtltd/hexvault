@@ -30,7 +30,7 @@ test("standard ZIP files open without a HEXVAULT manifest",async()=>{
 
 test("ZIP import rejects traversal, nested archives, invalid types, oversized entries, and modified bytes",async()=>{
   await assert.rejects(readDocumentArchive(zipSync({"../letter.pdf":pdf})),/invalid file path/);
-  await assert.rejects(readDocumentArchive(zipSync({"nested.zip":zipSync({"letter.pdf":pdf})})),/PDF, JPEG, PNG, or WebP/);
+  await assert.rejects(readDocumentArchive(zipSync({"nested.zip":zipSync({"letter.pdf":pdf})})),/PDF, DOCX, JPEG, PNG, or WebP/);
   await assert.rejects(readDocumentArchive(zipSync({"fake.pdf":strToU8("not a PDF")})),/valid PDF/);
   await assert.rejects(readDocumentArchive(zipSync({"large.pdf":new Uint8Array(10*1024*1024+1)})),/no larger than 10 MB/);
   const tampered=zipSync({"letter.pdf":[pdf,{level:0}]});

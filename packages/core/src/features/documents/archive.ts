@@ -1,3 +1,6 @@
+import { archiveChecksums, crc32 } from "./zip-integrity";
+import { readDocxDocument } from "./docx";
+import { DOCX_MIME } from "./formats";
 import { unzip, zip, strFromU8, strToU8 } from "fflate";
 import { z } from "zod";
 
@@ -9,49 +12,17 @@ const metadataSchema = z.object({ path: z.string(), filename: z.string().min(1).
 export type ArchiveMetadata = z.infer<typeof metadataSchema>;
 export type ArchiveDocument = { path: string; filename: string; bytes: Uint8Array; mimeType: string; metadata?: ArchiveMetadata };
 
-const crcTable=Uint32Array.from({length:256},(_,index)=>{let value=index;for(let bit=0;bit<8;bit++)value=(value>>>1)^((value&1)?0xedb88320:0);return value>>>0;});
-function crc32(bytes:Uint8Array) {
-  let crc=0xffffffff;
-  for(const byte of bytes)crc=(crc>>>8)^crcTable[(crc^byte)&255];
-  return (crc^0xffffffff)>>>0;
-}
 export function archiveVisibility(visibility:string[]) {
   return visibility.includes("OWNER")?"OWNER":visibility.includes("HR")?"HR":"SELF";
 }
-function archiveChecksums(bytes:Uint8Array) {
-  const view=new DataView(bytes.buffer,bytes.byteOffset,bytes.byteLength);
-  let end=-1;
-  for(let offset=bytes.length-22;offset>=Math.max(0,bytes.length-65557);offset--) {
-    if(view.getUint32(offset,true)===0x06054b50&&offset+22+view.getUint16(offset+20,true)===bytes.length){end=offset;break;}
-  }
-  if(end<0||view.getUint16(end+4,true)||view.getUint16(end+6,true))throw new Error("Use a standard, single-part ZIP archive.");
-  const count=view.getUint16(end+10,true);
-  let offset=view.getUint32(end+16,true);
-  if(count>500||offset+view.getUint32(end+12,true)!==end)throw new Error("The ZIP directory is invalid or too large.");
-  const checksums=new Map<string,{crc:number;size:number}>();
-  for(let index=0;index<count;index++) {
-    if(offset+46>end||view.getUint32(offset,true)!==0x02014b50)throw new Error("The ZIP directory is incomplete.");
-    const flags=view.getUint16(offset+8,true);
-    if(flags&1)throw new Error("Use a ZIP without a password to open it inside HEXVAULT.");
-    const nameLength=view.getUint16(offset+28,true);
-    const next=offset+46+nameLength+view.getUint16(offset+30,true)+view.getUint16(offset+32,true);
-    if(next>end)throw new Error("The ZIP directory is incomplete.");
-    const name=strFromU8(bytes.subarray(offset+46,offset+46+nameLength),!(flags&2048));
-    if(checksums.has(name))throw new Error("The ZIP contains duplicate file paths.");
-    checksums.set(name,{crc:view.getUint32(offset+16,true),size:view.getUint32(offset+24,true)});
-    offset=next;
-  }
-  if(offset!==end)throw new Error("The ZIP directory is invalid.");
-  return checksums;
-}
-
 export function documentMimeType(filename: string, bytes: Uint8Array) {
   const extension = filename.split(".").pop()?.toLowerCase();
+  if(extension==="docx"&&bytes[0]===0x50&&bytes[1]===0x4b&&bytes[2]===3&&bytes[3]===4)return DOCX_MIME;
   if (extension === "pdf" && strFromU8(bytes.subarray(0, 5)) === "%PDF-") return "application/pdf";
   if (extension === "png" && [137,80,78,71,13,10,26,10].every((value,index)=>bytes[index]===value)) return "image/png";
   if (["jpg","jpeg"].includes(extension??"") && bytes[0]===255 && bytes[1]===216 && bytes[2]===255) return "image/jpeg";
   if (extension === "webp" && strFromU8(bytes.subarray(0,4)) === "RIFF" && strFromU8(bytes.subarray(8,12)) === "WEBP") return "image/webp";
-  throw new Error(`${filename}: ZIP entries must be valid PDF, JPEG, PNG, or WebP documents.`);
+  throw new Error(`${filename}: ZIP entries must be valid PDF, DOCX, JPEG, PNG, or WebP documents.`);
 }
 
 export async function readDocumentArchive(bytes: Uint8Array): Promise<ArchiveDocument[]> {
@@ -74,7 +45,7 @@ export async function readDocumentArchive(bytes: Uint8Array): Promise<ArchiveDoc
         if(total>MAX_ARCHIVE_BYTES) throw new Error("The extracted ZIP exceeds 100 MB.");
         if(![0,8].includes(entry.compression)) throw new Error("This ZIP compression method is not supported.");
         return true;
-      }},(error,result)=>error?reject(new Error("Unable to open ZIP. Use an unencrypted ZIP containing PDF or image documents.")):resolve(result));
+      }},(error,result)=>error?reject(new Error("Unable to open ZIP. Use an unencrypted ZIP containing PDF, DOCX, or image documents.")):resolve(result));
     } catch(error) { reject(error); }
   });
   for(const [path,data] of Object.entries(files)) {
@@ -99,6 +70,7 @@ export async function readDocumentArchive(bytes: Uint8Array): Promise<ArchiveDoc
     return {path,filename:details?.filename??filename,bytes:data,mimeType,metadata:details};
   });
   if(!documents.length||documents.length>MAX_ARCHIVE_FILES) throw new Error("Choose a ZIP containing 1 to 100 documents.");
+  for(const document of documents)if(document.mimeType===DOCX_MIME)await readDocxDocument(document.bytes);
   return documents;
 }
 
@@ -112,7 +84,7 @@ export async function createDocumentArchive(documents: { filename:string; bytes:
     total+=document.bytes.length;
     if(total>MAX_ARCHIVE_BYTES) throw new Error("The documents exceed the 100 MB ZIP limit.");
     const filename=document.filename.replace(/[\\/\u0000-\u001f\u007f:]/g,"_").slice(-180);
-    documentMimeType(filename,document.bytes);
+    if(documentMimeType(filename,document.bytes)===DOCX_MIME)await readDocxDocument(document.bytes);
     const path=`documents/${String(index+1).padStart(3,"0")}-${filename}`;
     files[path]=document.bytes;
     metadata.push(metadataSchema.parse({path,filename,category:document.category,visibility:document.visibility,expiresAt:document.expiresAt}));

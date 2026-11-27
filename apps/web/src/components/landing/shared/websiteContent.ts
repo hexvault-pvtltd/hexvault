@@ -1,4 +1,4 @@
-export type CompanyBlock = { title: string; paragraphs: string[]; items: string[]; status?: string; blocks: CompanyBlock[] };
+export type CompanyBlock = { id?: string; title: string; paragraphs: string[]; items: string[]; status?: string; blocks: CompanyBlock[] };
 export type CompanyTopic = "about" | "identity" | "purpose" | "vision" | "mission" | "values" | "services" | "products" | "expertise" | "technologies" | "industries" | "research" | "process" | "engineering" | "why" | "engagements" | "careers" | "teams" | "partnerships" | "security" | "resources" | "roadmap" | "global" | "commitment" | "faq" | "contact" | "cta" | "footer" | "availability";
 export const websiteIntroduction = [
   "Transforming ideas into secure, scalable and innovative technology solutions.",

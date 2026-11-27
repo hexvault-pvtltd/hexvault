@@ -1,10 +1,11 @@
+import { DOCX_MIME } from "@core/features/documents/formats";
 import { db } from "@core/lib/db";
 import { canReadDocument } from "@core/features/documents/permissions";
 import { cdnFolderAccess } from "@core/features/cdn/permissions";
 import { canReadTask } from "@core/features/tasks/permissions";
 
 type Actor = { id: string; roles: string[]; employee?: { id: string } | null };
-export const previewableTypes = new Set(["application/pdf", "image/jpeg", "image/png", "image/webp", "image/gif", "image/avif", "audio/webm", "audio/ogg", "audio/mp4", "audio/mpeg", "audio/wav", "video/mp4", "video/webm", "text/plain", "text/csv", "application/json"]);
+export const previewableTypes = new Set([DOCX_MIME,"application/pdf", "image/jpeg", "image/png", "image/webp", "image/gif", "image/avif", "audio/webm", "audio/ogg", "audio/mp4", "audio/mpeg", "audio/wav", "video/mp4", "video/webm", "text/plain", "text/csv", "application/json"]);
 
 export async function fileAccess(actor: Actor, fileId: string) {
   const [document, chat, cdn, attachment] = await Promise.all([

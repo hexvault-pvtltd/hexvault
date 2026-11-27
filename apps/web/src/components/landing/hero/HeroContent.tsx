@@ -9,7 +9,7 @@ export default function HeroContent() {
       <p>{companyCopy.summary}</p>
       <div className="hv-hero-actions">
         <Link className="hv-action hv-action-primary" href="/contact">Contact Us</Link>
-        <Link className="hv-action hv-action-secondary" href="/pricing">View Pricing</Link>
+        <Link className="hv-action hv-action-secondary" href="/services#engagements">View Pricing</Link>
       </div>
     </div>
   );

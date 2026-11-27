@@ -1,6 +1,7 @@
 import type { NextConfig } from "next";
 import { loadEnvConfig } from "@next/env";
 import path from "node:path";
+import { publicRedirects } from "./src/components/landing/shared/siteStructure";
 const root = path.resolve(process.cwd(), "../..");
 loadEnvConfig(root);
 const apiInternalUrl = process.env.API_INTERNAL_URL
@@ -9,6 +10,7 @@ const nextConfig: NextConfig = {
   output: "standalone",
   outputFileTracingRoot: root,
   transpilePackages: ["@hexvault/core"],
+  redirects: async () => Object.entries(publicRedirects).map(([slug,destination])=>({source:`/${slug}`,destination,permanent:true})),
   // A standalone web deployment can forward missing API routes to Render.
   // Root Vercel Services deployments route API requests before reaching web.
   // Local route handlers take precedence over this fallback.
