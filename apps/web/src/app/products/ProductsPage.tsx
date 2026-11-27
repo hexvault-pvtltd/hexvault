@@ -4,6 +4,9 @@ import Image from "next/image";
 import Link from "next/link";
 import { ArrowLeft, ArrowRight, ArrowUpRight, Menu, X } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
+import CompanyProductRoadmap, { approvedProductStatus } from "@/components/landing/shared/CompanyProductRoadmap";
+import { CompanyStatus } from "@/components/landing/shared/CompanyContent";
+import LandingFooter from "@/components/landing/footer/LandingFooter";
 import LandingLogo from "@/components/landing/shared/LandingLogo";
 import { formatProductPrice, type CatalogProduct } from "@core/features/products/catalog";
 
@@ -66,7 +69,7 @@ export default function ProductsPage() {
         <p className="products-subtitle">Tools and platforms engineered by HexVault to simplify,<br className="products-desktop-break" /> automate, and accelerate modern software teams.</p>
       </section>
 
-      {loading ? <div className="products-empty" role="status">Loading products…</div> : loadError ? <div className="products-empty" role="alert"><h2>We couldn’t load the products.</h2><button onClick={() => { setLoading(true); setReload(value => value + 1); }}>Try again <ArrowRight size={18} /></button></div> : !product ? <div className="products-empty"><ProductMark /><h2>Something great is on the way.</h2><p>Our products will appear here as they become available.</p><Link href="/contact">Talk to our team <ArrowUpRight size={18} /></Link></div> : <section className="products-carousel" aria-label="Our products" aria-roledescription="carousel" tabIndex={0}
+      {loading ? <div className="products-empty" role="status">Loading products…</div> : loadError ? <div className="products-empty" role="alert"><h2>We couldn’t load the products.</h2><button onClick={() => { setLoading(true); setReload(value => value + 1); }}>Try again <ArrowRight size={18} /></button></div> : !product ? <div className="products-empty"><ProductMark /><h2>Our product ecosystem is taking shape.</h2><p>Explore the in-development and proposed products below. Contact us to confirm current availability.</p><Link href="/contact">Talk to our team <ArrowUpRight size={18} /></Link></div> : <section className="products-carousel" aria-label="Our products" aria-roledescription="carousel" tabIndex={0}
         onKeyDown={event => { if (event.target !== event.currentTarget) return; if (event.key === "ArrowLeft" || event.key === "ArrowRight") { event.preventDefault(); move(event.key === "ArrowLeft" ? -1 : 1); } }}
         onTouchStart={event => { touchStart.current = event.touches[0].clientX; }}
         onTouchEnd={event => { if (touchStart.current === null) return; const distance = touchStart.current - event.changedTouches[0].clientX; if (Math.abs(distance) > 60) move(distance > 0 ? 1 : -1); touchStart.current = null; }}
@@ -80,6 +83,7 @@ export default function ProductsPage() {
               {product.imageUrl ? <Image src={product.imageUrl} alt={product.imageAlt || product.name} width={800} height={800} unoptimized draggable={false} /> : <span className="products-image-placeholder" aria-hidden="true"><ProductMark /></span>}
             </div>
             <div className="products-content">
+              <CompanyStatus status={approvedProductStatus(product.name)}/>
               <h2>{product.logoUrl ? <Image className="products-owner-logo" src={product.logoUrl} alt="" width={56} height={62} unoptimized /> : <ProductMark />}{product.name}</h2>
               <h3>{product.title}</h3>
               <p>{product.description}</p>
@@ -93,6 +97,8 @@ export default function ProductsPage() {
         <div className="products-pagination" aria-label="Choose a product">{products.map((item, index) => <button key={item.id} aria-label={`Show ${item.name}`} aria-current={active === index ? "true" : undefined} onClick={() => setActive(index)}><span /></button>)}</div></>}
       </section>}
 
+      <CompanyProductRoadmap publishedNames={products.map(product=>product.name)}/>
+      <LandingFooter/>
       <dialog ref={dialog} className="hv-info-dialog products-dialog" aria-labelledby="product-dialog-title" aria-describedby="product-dialog-description" onClick={event => { if (event.target === event.currentTarget) dialog.current?.close(); }} onClose={() => { if (trigger.current?.getClientRects().length) trigger.current.focus(); else document.querySelector<HTMLButtonElement>(".products-menu")?.focus(); }}>
         <div className="hv-dialog-content">
           <button className="hv-dialog-close" aria-label="Close details" onClick={() => dialog.current?.close()}><X size={20} /></button>

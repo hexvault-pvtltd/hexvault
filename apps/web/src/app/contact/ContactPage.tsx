@@ -1,8 +1,10 @@
 "use client";
 import { useState, type FormEvent } from "react";
-import { ArrowLeft, ArrowUpRight, ChevronDown, Mail, MapPin, MessageCircle } from "lucide-react";
+import { ArrowLeft, ArrowUpRight, ChevronDown, Mail, MapPin } from "lucide-react";
 import ParticleBackground from "@/components/landing/background/ParticleBackground";
-const email = "contact.hexvault@gmail.com";
+import { companyCopy } from "@/components/landing/shared/companyCopy";
+import LandingFooter from "@/components/landing/footer/LandingFooter";
+const email = companyCopy.email;
 export default function ContactPage() {
   const [draft, setDraft] = useState("");
   function compose(event: FormEvent<HTMLFormElement>) {
@@ -22,8 +24,8 @@ export default function ContactPage() {
       <a href="/dashboard" className="contact-dashboard"><ArrowLeft size={17}/> Back to dashboard</a>
       <div className="contact-intro">
         <span>Get in touch</span>
-        <h1>Let&apos;s discuss your project</h1>
-        <p>Have an idea, a challenge, or just want to explore possibilities?<br/>We would love to hear from you.</p>
+        <h1>Let&apos;s Build Something Meaningful.</h1>
+        <p>Have a software idea, business challenge or technology requirement? Connect with HEXVAULT to explore how technology can transform your ideas into practical digital solutions.</p>
       </div>
       <nav className="contact-views" aria-label="Contact sections">
         <a href="#next-steps">Contact details</a>
@@ -35,18 +37,19 @@ export default function ContactPage() {
           <input aria-label="Work email" name="email" type="email" autoComplete="email" placeholder="Work email" required maxLength={254}/>
           <input aria-label="Company" name="company" autoComplete="organization" placeholder="Company" maxLength={120}/>
           <input aria-label="Phone number" name="phone" type="tel" autoComplete="tel" placeholder="Phone number" maxLength={40}/>
-          <div className="contact-select"><select aria-label="What are you looking for?" name="service" required defaultValue=""><option value="" disabled>What are you looking for?</option><option>Project development</option><option>Technical consultation</option><option>Partnership</option><option>Something else</option></select><ChevronDown size={17}/></div>
+          <div className="contact-select"><select aria-label="What are you looking for?" name="service" required defaultValue=""><option value="" disabled>What are you looking for?</option><option>Business Enquiries</option><option>Product Enquiries</option><option>Partnership Enquiries</option><option>Career Enquiries</option><option>Technical Support</option></select><ChevronDown size={17}/></div>
           <textarea aria-label="Tell us about your project" name="project" placeholder="Tell us about your project" required maxLength={3000}/>
           <button className="contact-cta" type="submit">Send message <ArrowUpRight size={18}/></button>
           {draft && <p className="contact-status" role="status">Send the draft from your email app to complete your inquiry. <a href={draft}>Open email draft</a></p>}
         </form>
         <aside id="next-steps" className="contact-details"><h2>Contact us</h2>
           <a href={"mailto:" + email}><span><Mail size={19}/></span><div><h3>Email us</h3><p>{email}</p></div></a>
-          <a href="https://wa.me/9199955333576" target="_blank" rel="noreferrer"><span><MessageCircle size={19}/></span><div><h3>WhatsApp</h3><p>+91 99955 333576</p></div></a>
-          <div className="contact-location"><span><MapPin size={19}/></span><div><h3>Remote first</h3><p>Working worldwide</p></div></div>
+          <a href={companyCopy.linkedIn} target="_blank" rel="noopener noreferrer"><span><ArrowUpRight size={19}/></span><div><h3>LinkedIn</h3><p>HEXVAULT company page</p></div></a>
+          <div className="contact-location"><span><MapPin size={19}/></span><div><h3>Global enquiries</h3><p>Project availability is confirmed individually.</p></div></div>
         </aside>
       </div>
     </main>
     </div>
+    <LandingFooter/>
   </div>;
 }

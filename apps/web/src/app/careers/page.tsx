@@ -1,4 +1,5 @@
 import { CareersBoard } from "@/components/careers-board";
+import "@/styles/landing.css";
 
 type Props = { searchParams: Promise<{ role?: string }> };
 

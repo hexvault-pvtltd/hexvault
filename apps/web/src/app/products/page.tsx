@@ -5,7 +5,7 @@ import "./products.css";
 
 export const metadata: Metadata = {
   title: "Products | HEXVAULT",
-  description: "Tools and platforms engineered by HexVault to simplify, automate, and accelerate modern software teams.",
+  description: "Explore HEXVAULT Restaurant ERP, Workforce OS, and proposed software products. Confirm current availability and development status.",
 };
 
 export default function Page() {
