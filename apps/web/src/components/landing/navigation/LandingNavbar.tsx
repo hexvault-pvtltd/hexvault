@@ -16,6 +16,7 @@ function NavigationLinks({ onNavigate }: { onNavigate: () => void }) {
           <Link href={product.href} key={product.name} onClick={onNavigate}><strong>{product.name}</strong><span>{product.description}</span></Link>
         )) : null}
       </NavigationDropdown>
+      <Link href="/services" onClick={onNavigate}>Services</Link>
       <Link href="/pricing" onClick={onNavigate}>Pricing</Link>
       <NavigationDropdown label="Resources">
         <Link href="/process" onClick={onNavigate}>How we work</Link>
@@ -24,8 +25,15 @@ function NavigationLinks({ onNavigate }: { onNavigate: () => void }) {
         <Link href="/guides" onClick={onNavigate}>Guides</Link>
         <Link href="/support" onClick={onNavigate}>Support</Link>
         <Link href="/community" onClick={onNavigate}>Community Guidelines</Link>
+        <Link href="/resources" onClick={onNavigate}>Knowledge Centre</Link>
+        <Link href="/expertise" onClick={onNavigate}>Our Expertise</Link>
+        <Link href="/technologies" onClick={onNavigate}>Technologies</Link>
+        <Link href="/industries" onClick={onNavigate}>Industries</Link>
+        <Link href="/research" onClick={onNavigate}>Research &amp; Development</Link>
+        <Link href="/global-services" onClick={onNavigate}>Global Technology Services</Link>
+        <Link href="/faq" onClick={onNavigate}>FAQs</Link>
       </NavigationDropdown>
-      <Link href="/about" onClick={onNavigate}>Why Hexvault</Link>
+      <NavigationDropdown label="Company"><Link href="/about" onClick={onNavigate}>About HEXVAULT</Link><Link href="/purpose" onClick={onNavigate}>Our Purpose</Link><Link href="/vision" onClick={onNavigate}>Our Vision</Link><Link href="/mission" onClick={onNavigate}>Our Mission</Link><Link href="/values" onClick={onNavigate}>Our Values</Link><Link href="/our-teams" onClick={onNavigate}>Our Teams</Link><Link href="/roadmap" onClick={onNavigate}>Roadmap</Link><Link href="/partnerships" onClick={onNavigate}>Partnerships</Link></NavigationDropdown>
     </>
   );
 }

@@ -1,0 +1,24 @@
+.cc-content { color: #eee8e2; }
+.cc-content p { max-width: 820px; margin: 0 0 20px; color: #aaa5a0; font-size: 16px; line-height: 1.85; }
+.cc-content ul { display: grid; grid-template-columns: repeat(auto-fit,minmax(min(100%,240px),1fr)); gap: 12px 32px; margin: 24px 0; padding-left: 20px; color: #b9b1a9; font-size: 15px; line-height: 1.65; }
+.cc-content li::marker { color: #f38752; }
+.cc-status { display: inline-flex; width: fit-content; margin-bottom: 20px; padding: 6px 11px; border: 1px solid #6d482e; border-radius: 999px; background: #6b371b24; color: #f2b38c; font-size: 12px; line-height: 1.5; }
+.cc-section { display: grid; grid-template-columns: 64px minmax(0,1fr); gap: 24px; padding: 36px 0; border-top: 1px solid #39302a; }
+.cc-number { padding-top: 7px; color: #d98b5c; font: 12px monospace; }
+.cc-content h2 { margin: 0 0 20px; font-size: clamp(23px,3vw,32px); font-weight: 500; line-height: 1.25; letter-spacing: -.03em; }
+.cc-content h3,.cc-content h4 { margin: 30px 0 15px; font-size: 20px; font-weight: 500; color: #f5dbca; }
+.cc-cards { display: grid; grid-template-columns: repeat(auto-fit,minmax(min(100%,300px),1fr)); gap: 20px; }
+.cc-card { padding: 28px; border: 1px solid #443126; border-radius: 18px; background: radial-gradient(ellipse at top right,#9d4b1820,transparent 75%),#110e0c; }
+.cc-card h2 { font-size: 23px; }
+.cc-card a { display: inline-flex; gap: 18px; align-items: center; margin-top: 8px; color: #f19b68; font-size: 14px; }
+.cc-question { margin-bottom: 12px; padding: 20px 24px; border: 1px solid #493426; border-radius: 15px; background: #17120f; }
+.cc-question summary { display: flex; align-items: center; justify-content: space-between; gap: 20px; cursor: pointer; list-style: none; font-size: 18px; }
+.cc-question summary::-webkit-details-marker { display: none; }
+.cc-question summary span { color: #f39761; }
+.cc-question[open] summary { margin-bottom: 20px; }
+.cc-question[open] summary span { transform: rotate(45deg); }
+.cc-question p:last-child { margin-bottom: 0; }
+.cc-product-roadmap { width: min(1100px,calc(100% - 40px)); margin: 90px auto; }
+.cc-product-roadmap > h2 { margin: 12px 0 26px; color: #f4ede7; font-size: clamp(30px,4vw,48px); font-weight: 500; letter-spacing: -.04em; }
+.cc-eyebrow { color: #f49a65; font-size: 11px; text-transform: uppercase; letter-spacing: .16em; }
+@media(max-width:680px) { .cc-section { grid-template-columns: 25px minmax(0,1fr); gap: 12px; } .cc-card { padding: 22px; } .cc-content p { font-size: 15px; } }

@@ -1,11 +1,13 @@
 import Link from "next/link";
 import { ArrowDown, ArrowRight, ArrowUpRight, Braces, Check, Cloud, GitBranch, Layers3, MessageSquare, ShieldCheck, Sparkles, Workflow } from "lucide-react";
 import "./landing-body.css";
+import { companyCopy } from "./shared/companyCopy";
+import { websiteContent, websiteIntroduction } from "./shared/websiteContent";
 
 const services = [
   { number: "01", icon: Braces, title: "Product engineering", description: "Web platforms, mobile experiences, and the systems behind them. Thoughtful software, from the first screen to the last integration.", tags: ["Web & mobile", "Platforms", "Integrations"], className: "product" },
-  { number: "02", icon: Sparkles, title: "AI & automation", description: "Bring AI into the work that matters. Connect tools, simplify repetitive steps, and turn ideas into practical workflows.", tags: ["AI workflows", "Automation", "Connected tools"], className: "automation" },
-  { number: "03", icon: Cloud, title: "Cloud & DevOps", description: "Give your product a dependable foundation. Build, deploy, and improve the infrastructure that keeps your software moving.", tags: ["Cloud engineering", "Delivery pipelines", "Infrastructure"], className: "cloud" },
+  { number: "02", icon: Sparkles, title: "AI & automation", description: "Developing intelligent technology solutions that support productivity, automation and decision-making.", tags: ["Planned", "AI workflows", "Intelligent automation"], className: "automation" },
+  { number: "03", icon: Cloud, title: "Cloud & DevOps", description: "Supporting reliable application deployment and scalable digital infrastructure as our technical capabilities expand.", tags: ["Expanding capabilities", "Cloud engineering", "Deployment"], className: "cloud" },
 ];
 const steps = [
   { number: "01", title: "Start with the right questions.", text: "Tell us what you want to build, who it is for, and what is getting in the way. We shape the scope and next steps together." },
@@ -29,6 +31,7 @@ function WorkflowPreview() {
 export default function LandingBody() {
   return <div className="hl-body">
     <div className="hl-scroll-note" aria-hidden="true"><span>GOOD IDEAS DESERVE A GREAT BUILD</span><ArrowDown size={15}/></div>
+    <section className="hl-section hl-company-intro" aria-labelledby="hl-company-title"><p className="hl-eyebrow"><span/>ABOUT HEXVAULT</p><h2 id="hl-company-title">Engineering technology<br/><span>with purpose.</span></h2><p>{companyCopy.introduction}</p><p>{websiteIntroduction[2]}</p><div className="hl-company-links"><Link href="/about" className="hl-text-link">About HEXVAULT <ArrowUpRight size={17}/></Link><Link href="/roadmap" className="hl-text-link">Our roadmap <ArrowUpRight size={17}/></Link><Link href="/identity" className="hl-text-link">Secure. Build. Innovate. <ArrowUpRight size={17}/></Link></div></section>
 
     <section className="hl-section hl-capabilities" id="capabilities" aria-labelledby="hl-capabilities-title">
       <div className="hl-section-heading"><div><p className="hl-eyebrow"><span/>WHAT WE BUILD</p><h2 id="hl-capabilities-title">Your next idea.<br/><span>Built to go further.</span></h2></div><p>From a new product to a better way of working, we bring design, engineering, and automation into one conversation.</p></div>
@@ -42,7 +45,7 @@ export default function LandingBody() {
     </section>
 
     <section className="hl-section hl-collaboration" id="why-hexvault" aria-labelledby="hl-collaboration-title">
-      <div className="hl-collaboration-copy"><p className="hl-eyebrow"><span/>WHY HEXVAULT</p><h2 id="hl-collaboration-title">Great software.<br/><span>Built together.</span></h2><p>The work gets better when everyone has the context. Connect your people, projects, and conversations so the next step is clear.</p>
+      <div className="hl-collaboration-copy"><p className="hl-eyebrow"><span/>WHY HEXVAULT</p><h2 id="hl-collaboration-title">Great software.<br/><span>Built together.</span></h2><p>{websiteContent.why.blocks[0].paragraphs[0]} {websiteContent.why.blocks[1].paragraphs[0]}</p>
         <ul className="hl-principles"><li><span><Workflow size={18}/></span><div><h3>Keep the work connected</h3><p>Bring tasks, conversations, and project updates into the same workflow.</p></div></li><li><span><ShieldCheck size={18}/></span><div><h3>Give people the right access</h3><p>Clear roles and ownership help teams work with confidence.</p></div></li><li><span><GitBranch size={18}/></span><div><h3>Make progress reviewable</h3><p>Keep decisions and feedback close to the work they shape.</p></div></li></ul>
         <Link href="/about" className="hl-text-link">More about HEXVAULT <ArrowUpRight size={17}/></Link>
       </div><WorkflowPreview/>
@@ -68,6 +71,6 @@ export default function LandingBody() {
       ].map(page => <Link className="hl-page-card" href={page.href} key={page.href}><h3>{page.title}<ArrowUpRight size={20}/></h3><p>{page.text}</p></Link>)}</div>
     </section>
 
-    <section className="hl-section hl-cta-section" id="pricing" aria-labelledby="hl-cta-title"><div className="hl-cta"><div className="hl-cta-glow" aria-hidden="true"/><div className="hl-cta-copy"><p className="hl-eyebrow"><span/>LET&apos;S BUILD SOMETHING USEFUL</p><h2 id="hl-cta-title">What are you<br/><span>building next?</span></h2><p>Share your idea, your challenge, or your next milestone. We&apos;ll discuss the scope, timeline, and pricing around what you need.</p><div className="hl-cta-actions"><Link href="/contact#project-inquiry" className="hl-primary-link">Discuss your project <ArrowUpRight size={18}/></Link><Link href="/products" className="hl-secondary-link">Explore products <ArrowRight size={17}/></Link></div></div><div className="hl-cta-symbol" aria-hidden="true"><span/><span/><span/><span/></div></div></section>
+    <section className="hl-section hl-cta-section" id="pricing" aria-labelledby="hl-cta-title"><div className="hl-cta"><div className="hl-cta-glow" aria-hidden="true"/><div className="hl-cta-copy"><p className="hl-eyebrow"><span/>LET&apos;S BUILD SOMETHING USEFUL</p><h2 id="hl-cta-title">Build your next idea<br/><span>with HEXVAULT.</span></h2><p>Transform your business requirements into practical digital solutions.</p><div className="hl-cta-actions"><Link href="/contact#project-inquiry" className="hl-primary-link">Discuss your project <ArrowUpRight size={18}/></Link><Link href="/products" className="hl-secondary-link">Explore products <ArrowRight size={17}/></Link></div></div><div className="hl-cta-symbol" aria-hidden="true"><span/><span/><span/><span/></div></div></section>
   </div>;
 }
