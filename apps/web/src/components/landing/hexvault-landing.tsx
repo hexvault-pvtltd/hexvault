@@ -16,7 +16,7 @@ export default function HexvaultLanding() {
         <HeroContent />
       </section>
       <LandingBody />
-      <LandingFooter />
+      <LandingFooter showFaq />
     </main>
   );
 }

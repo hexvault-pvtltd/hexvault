@@ -1,10 +1,12 @@
 import Link from "next/link";
+import { companyCopy } from "../shared/companyCopy";
 
 export default function HeroContent() {
   return (
     <div className="hv-hero-content">
-      <h1>Multiplayer mode for <span>AI development</span></h1>
-      <p>Collaborate, build, and scale AI-powered solutions together in real-time.</p>
+      <p className="hv-hero-motto">{companyCopy.motto}</p>
+      <h1>Delivering <span>Solutions.</span></h1>
+      <p>{companyCopy.summary}</p>
       <div className="hv-hero-actions">
         <Link className="hv-action hv-action-primary" href="/contact">Contact Us</Link>
         <Link className="hv-action hv-action-secondary" href="/pricing">View Pricing</Link>

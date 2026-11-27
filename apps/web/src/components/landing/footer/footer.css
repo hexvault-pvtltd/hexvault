@@ -1,20 +1,23 @@
 .hv-site-footer {
   color: #eae8e6;
   background-color: #101115;
-  background-image: radial-gradient(ellipse 72% 34% at 50% 9%, #fff4ebaa, transparent 80%), linear-gradient(180deg,#f6eae2 0%,#f7e3d4 11%,#ffca9d 20%,#ff8336 29%,#c9521b 34%,#64321f 39%,#231c1b 45%,#121317 54%,#101115 83%,#0b0c0e 100%);
+  background-image: radial-gradient(ellipse 75% 42% at 72% 28%, #a64f1826, transparent 78%), linear-gradient(180deg,#070707 0%,#100d0b 27%,#121113 58%,#0b0c0e 100%);
   padding: clamp(30px,3vw,48px) 5.2% 2vw;
   overflow: hidden;
   font-family: Arial, Helvetica, sans-serif;
 }
-.hf-faq { width: min(940px,100%); margin: 0 auto; display: grid; gap: 12px; color: #141312; }
-.hf-faq details { border-radius: 15px; background: #fffcf8c7; }
+.hf-faq { width: min(940px,100%); margin: 0 auto; display: grid; gap: 12px; color: #f0e8e1; }
+.hf-faq details { border: 1px solid #493426; border-radius: 15px; background: linear-gradient(115deg,#17120fee,#21160fee); transition: border-color .2s ease; }
+.hf-faq details:hover, .hf-faq details[open] { border-color: #92603b; }
 .hf-faq summary { display: flex; justify-content: space-between; align-items: center; gap: 16px; min-height: 74px; padding: 16px 24px; cursor: pointer; list-style: none; font-size: clamp(16px,1.35vw,21px); letter-spacing: -.025em; }
 .hf-faq summary::-webkit-details-marker { display: none; }
-.hf-faq svg { flex: none; width: 22px; }
+.hf-faq svg { flex: none; width: 22px; color: #f39761; transition: transform .2s ease; }
+.hf-faq summary:focus-visible { outline: 2px solid #ff974f; outline-offset: 4px; border-radius: 15px; }
 .hf-faq details[open] svg { transform: rotate(180deg); }
-.hf-faq p { padding: 0 24px 22px; line-height: 1.6; }
+.hf-faq p { margin: 0; padding: 0 24px 22px; color: #c5b8ad; line-height: 1.6; }
 .hf-faq p a { text-decoration: underline; }
-.hf-grid { display: grid; grid-template-columns: 3.1fr 1.45fr 1.15fr 1.25fr 1fr; column-gap: 3vw; row-gap: 34px; margin: clamp(120px,13.7vw,240px) auto 0; max-width: 1700px; }
+.hf-grid { display: grid; grid-template-columns: minmax(0,1.8fr) repeat(5,minmax(0,1fr)); column-gap: 2.4vw; row-gap: 34px; margin: 0 auto; max-width: 1700px; }
+.hv-site-footer-with-faq .hf-grid { margin-top: clamp(64px,7vw,112px); }
 .hf-brand .hv-logo { gap: 17px; font-weight: 700; font-size: clamp(23px,2.1vw,38px); letter-spacing: .14em; color: white; }
 .hf-brand .hv-logo-mark { width: 56px; height: 60px; }
 .hf-brand .hv-logo-mark img { width: 130px; left: -37px; top: -2px; }
@@ -31,18 +34,26 @@
 .hf-column :is(a,button):hover { text-decoration: underline; text-underline-offset: 4px; }
 .hf-copyright { grid-column: 1/-1; font-size: clamp(13px,1.1vw,18px); }
 .hf-watermark { display: block; width: 100%; margin: 3.4vw auto 0; }
+.hf-all-faq { justify-self: start; margin-top: 10px; color: #f4aa7a; font-size: 14px; }
+.hf-email { display: inline-block; margin-top: 10px; color: #f4aa7a; overflow-wrap: anywhere; font-size: 14px; }
+.hf-column { min-width: 0; overflow-wrap: anywhere; }
+.hf-availability { max-width: 1700px; margin: 40px auto 0; padding-top: 24px; border-top: 1px solid #3b2a21; color: #a89a90; font-size: 12px; line-height: 1.8; }
+.hf-availability p { max-width: 1000px; margin: 0 0 10px; }
+.hf-availability a { color: #efac7e; text-decoration: underline; text-underline-offset: 4px; }
 @media(max-width:1000px) {
-  .hf-grid { grid-template-columns: repeat(4,1fr); margin-top: 120px; }
+  .hf-grid { grid-template-columns: repeat(4,1fr); }
+  .hv-site-footer-with-faq .hf-grid { margin-top: 72px; }
   .hf-brand { grid-column: 1/-1; }
-  .hv-site-footer { background-size: 100% 750px; background-repeat: no-repeat; }
 }
 @media(max-width:600px) {
-  .hv-site-footer { padding: 28px 22px 20px; background-size: 100% 670px; }
+  .hv-site-footer { padding: 28px 22px 20px; }
   .hf-faq summary { min-height: 64px; padding: 13px 16px; }
-  .hf-grid { grid-template-columns: repeat(2,minmax(0,1fr)); margin-top: 104px; gap: 27px 20px; }
+  .hf-grid { grid-template-columns: repeat(2,minmax(0,1fr)); gap: 27px 20px; }
+  .hv-site-footer-with-faq .hf-grid { margin-top: 56px; }
   .hf-brand .hv-logo { font-size: 25px; }
   .hf-social { margin: 22px 0 4px; }
   .hf-social svg { width: 26px; height: 26px; }
   .hf-column h2 { margin-bottom: 5px; }
   .hf-watermark { margin-top: 30px; }
 }
+@media (prefers-reduced-motion: reduce) { .hf-faq details, .hf-faq svg { transition: none; } }
