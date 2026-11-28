@@ -28,9 +28,13 @@ export async function buildLetterPdf(letter: DocumentFields & { id: string; layo
         const rotated = angle === 90 || angle === 270;
         const originalWidth = rotated ? source.getHeight() : source.getWidth();
         const originalHeight = rotated ? source.getWidth() : source.getHeight();
-        const scale = Math.min(size.width / originalWidth, size.height / originalHeight);
-        const artworkWidth = originalWidth * scale, artworkHeight = originalHeight * scale;
-        const left = (size.width - artworkWidth) / 2, bottom = (size.height - artworkHeight) / 2;
+        const frame = background?.frame ?? { x: 0, y: 0, width: size.width, height: size.height };
+        const scale = Math.min(frame.width / originalWidth, frame.height / originalHeight);
+        const artworkWidth = background?.fit === "STRETCH" ? frame.width : originalWidth * scale;
+        const artworkHeight = background?.fit === "STRETCH" ? frame.height : originalHeight * scale;
+        const left = frame.x + (frame.width - artworkWidth) / 2, top = frame.y + (frame.height - artworkHeight) / 2;
+        const bottom = size.height - top - artworkHeight;
+        plan.backgrounds.push({ page: index, x: left, y: top, width: artworkWidth, height: artworkHeight });
         page.drawPage(embedded, {
           x: left + (angle === 180 || angle === 270 ? artworkWidth : 0),
           y: bottom + (angle === 90 || angle === 180 ? artworkHeight : 0),
@@ -40,17 +44,23 @@ export async function buildLetterPdf(letter: DocumentFields & { id: string; layo
       }
     }
     if (backgroundImage && showBackground) {
-      const scale = Math.min(size.width / backgroundImage.width, size.height / backgroundImage.height);
-      const width = backgroundImage.width * scale, height = backgroundImage.height * scale;
-      page.drawImage(backgroundImage, { x: (size.width - width) / 2, y: (size.height - height) / 2, width, height });
+      const frame = background?.frame ?? { x: 0, y: 0, width: size.width, height: size.height };
+      const scale = Math.min(frame.width / backgroundImage.width, frame.height / backgroundImage.height);
+      const width = background?.fit === "STRETCH" ? frame.width : backgroundImage.width * scale;
+      const height = background?.fit === "STRETCH" ? frame.height : backgroundImage.height * scale;
+      const x = frame.x + (frame.width - width) / 2, y = frame.y + (frame.height - height) / 2;
+      plan.backgrounds.push({ page: index, x, y, width, height });
+      page.drawImage(backgroundImage, { x, y: size.height - y - height, width, height });
     }
   }
   for (const region of plan.regions) {
     const page = pages[region.page], height = page.getHeight();
     if (region.kind === "image" && region.image) {
       const embedded = region.image.startsWith("data:image/png") ? await pdf.embedPng(decodeDataUrl(region.image)) : await pdf.embedJpg(decodeDataUrl(region.image));
+      const source = plan.layout.blocks.find(block => block.id === region.id)!;
       const scale = Math.min(region.width / embedded.width, region.height / embedded.height);
-      const imageWidth = embedded.width * scale, imageHeight = embedded.height * scale;
+      const imageWidth = source.lockAspectRatio === false ? region.width : embedded.width * scale;
+      const imageHeight = source.lockAspectRatio === false ? region.height : embedded.height * scale;
       page.drawImage(embedded, { x: region.x, y: height - region.y - imageHeight, width: imageWidth, height: imageHeight });
     }
     for (const line of region.lines) {

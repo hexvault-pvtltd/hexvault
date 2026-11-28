@@ -17,7 +17,7 @@ export function nextLetterStatus(actor: LetterActor, status: string, action: str
     return "PENDING_APPROVAL";
   }
   if (action === "SHARE") {
-    if (!actor.roles.includes("HR")) throw new LetterError(403, "Only HR can share approved letters.");
+    if (!isLetterAdmin(actor)) throw new LetterError(403, "Only the owner or HR can share approved letters.");
     if (status !== "APPROVED") throw new LetterError(409, "Owner approval is required before sharing this letter.");
     return "APPROVED";
   }

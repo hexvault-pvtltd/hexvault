@@ -7,6 +7,8 @@ import { letterContentSchema, starterTemplates, templateSchema } from "./content
 import { assertLetterAccess, isLetterAdmin, LetterError } from "./policy";
 import { changeLetter, editLetter, letterData, prepareLetterShare, validateLetterPdf } from "./service";
 import { renderLetterPdf } from "./pdf";
+import { findLetterRecipients } from "./recipients";
+import { LETTER_LIMITS } from "./limits";
 
 const respond = (error: unknown) => error instanceof LetterError
   ? Response.json({ error: { code: "LETTER_ERROR", message: error.message } }, { status: error.status }) : fail(error);
@@ -14,7 +16,7 @@ const key = z.uuid();
 type Context = { params: Promise<{ id: string }> };
 async function requestBody(request: Request) {
   const body = await request.text();
-  if (body.length > 8500000) throw new LetterError(413, "This document is too large. Use smaller template and signature images.");
+  if (body.length > LETTER_LIMITS.uploads.requestJsonCharacters) throw new LetterError(413, "This document is too large. Use smaller template and signature images.");
   return JSON.parse(body);
 }
 export async function listLetters() {
@@ -25,7 +27,19 @@ export async function listLetters() {
       db.letterTemplate.findMany({ where: isLetterAdmin(actor) ? {} : { OR: [{ createdBy: actor.id }, { createdBy: { in: (await db.user.findMany({ where: { roles: { some: { revokedAt: null, role: { code: { in: ["OWNER", "HR"] } } } } }, select: { id: true } })).map(user => user.id) } }] }, orderBy: { createdAt: "desc" }, take: 100 }),
       db.companySetting.findUnique({ where: { id: "company" }, select: { displayName: true } }),
     ]);
-    return ok({ items, templates: [...starterTemplates, ...templates], companyName: company?.displayName ?? "HEXVAULT", roles: actor.roles });
+    return ok({ items, templates: [...starterTemplates, ...templates], companyName: company?.displayName ?? "HEXVAULT", roles: actor.roles,
+      currentUser: { userId: actor.id, employeeId: actor.employee?.id ?? null, fullName: actor.employee?.fullName ?? actor.email, email: actor.employee?.workEmail ?? actor.email, phone: actor.employee?.phone ?? "", title: actor.employee?.title ?? "" },
+      canCreateEmployee: isLetterAdmin(actor),
+    });
+  } catch (error) { return respond(error); }
+}
+export async function listLetterRecipients(request: Request) {
+  try {
+    const actor = await letterActor();
+    const params = new URL(request.url).searchParams;
+    const query = z.string().trim().max(100).parse(params.get("q") ?? "");
+    const id = params.has("id") ? z.uuid().parse(params.get("id")) : undefined;
+    return ok({ items: await findLetterRecipients(actor, query, id) });
   } catch (error) { return respond(error); }
 }
 export async function createLetter(request: Request) {

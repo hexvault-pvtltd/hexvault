@@ -1,10 +1,12 @@
 import { PDFDocument, StandardFonts, type PDFFont } from "pdf-lib";
 import { defaultLetterLayout, layoutSchema, type LetterBlock, type LetterLayout, type PageSize } from "./layout-schema";
+import { LETTER_LIMITS } from "./limits";
+import type { ElementBox } from "./geometry";
 
 export type DocumentFields = { title: string; companyName: string; recipientName: string; documentDate: string; body: string };
 export type PlannedLine = { text: string; x: number; y: number; font: string; size: number; wordSpacing: number };
 export type PlannedRegion = { id: string; page: number; x: number; y: number; width: number; height: number; kind: "text" | "image"; image: string | null; lines: PlannedLine[] };
-export type DocumentPlan = { pages: PageSize[]; regions: PlannedRegion[]; layout: LetterLayout };
+export type DocumentPlan = { pages: PageSize[]; regions: PlannedRegion[]; layout: LetterLayout; backgrounds: (ElementBox & { page: number })[] };
 export const fontNames: Record<string, StandardFonts> = {
   Helvetica: StandardFonts.Helvetica, "Helvetica-Bold": StandardFonts.HelveticaBold,
   "Helvetica-Italic": StandardFonts.HelveticaOblique, "Helvetica-BoldItalic": StandardFonts.HelveticaBoldOblique,
@@ -38,6 +40,18 @@ function wrapText(text: string, font: PDFFont, size: number, width: number) {
   }
   return lines;
 }
+function fittedText(text: string, font: PDFFont, block: LetterBlock) {
+  const fits = (size: number) => {
+    try { return wrapText(text, font, size, block.width).length * size * block.lineHeight <= block.height + 0.00001; }
+    catch { return false; }
+  };
+  if (!fits(LETTER_LIMITS.blocks.minFontSize)) throw new Error("Text does not fit in this box at the minimum font size. Enlarge the box or switch to automatic text flow.");
+  let low: number = LETTER_LIMITS.blocks.minFontSize, high = block.fontSize;
+  if (fits(high)) low = high;
+  else for (let index = 0; index < 24; index++) { const middle = (low + high) / 2; if (fits(middle)) low = middle; else high = middle; }
+  const size = Math.floor(low * 1000000) / 1000000;
+  return { size, lines: wrapText(text, font, size, block.width) };
+}
 
 export async function planDocument(fields: DocumentFields, rawLayout: unknown, fonts?: Record<string, PDFFont>): Promise<DocumentPlan> {
   const layout = rawLayout ? layoutSchema.parse(rawLayout) : defaultLetterLayout();
@@ -47,7 +61,7 @@ export async function planDocument(fields: DocumentFields, rawLayout: unknown, f
   const top = layout.contentArea?.top ?? layout.marginTop, bottom = layout.contentArea?.bottom ?? layout.marginBottom;
   const ends = new Map<string, { page: number; y: number }>();
   const ensurePage = (index: number) => {
-    if (index >= 100) throw new Error("This document exceeds 100 pages. Shorten the content or increase the text area.");
+    if (index >= LETTER_LIMITS.pages.generated) throw new Error("This document exceeds 100 pages. Shorten the content or increase the text area.");
     while (pages.length <= index) pages.push({ ...layout.pages[layout.pages.length - 1] });
     return pages[index];
   };
@@ -71,15 +85,27 @@ export async function planDocument(fields: DocumentFields, rawLayout: unknown, f
       const label = layout.blocks[blockIndex + 1];
       if (label?.kind === "text" && label.afterId === block.id) {
         const labelLines = wrapText(blockText(label), availableFonts[fontKey(label)], label.fontSize, label.width);
-        const together = block.height + label.gap + labelLines.length * label.fontSize * label.lineHeight;
-        if (labelLines.length <= 6 && together <= size.height - top - bottom) reserve = together;
+        const together = block.height + label.gap + (label.textSizing === "FIT" ? label.height : labelLines.length * label.fontSize * label.lineHeight);
+        if ((label.textSizing === "FIT" || labelLines.length <= 6) && together <= size.height - top - bottom) reserve = together;
       }
       advance(reserve);
       regions.push({ id: block.id, page, x: block.x, y, width: block.width, height: block.height, kind: "image", image: block.image, lines: [] });
       ends.set(block.id, { page, y: y + block.height }); continue;
     }
     const text = blockText(block);
-    const font = availableFonts[fontKey(block)], step = block.fontSize * block.lineHeight;
+    const font = availableFonts[fontKey(block)];
+    if (block.textSizing === "FIT") {
+      const fitted = fittedText(text, font, block);
+      advance(block.height);
+      const region: PlannedRegion = { id: block.id, page, x: block.x, y, width: block.width, height: block.height, kind: "text", image: null, lines: [] };
+      for (const [index, line] of fitted.lines.entries()) {
+        const used = font.widthOfTextAtSize(line.text, fitted.size), spaces = (line.text.match(/ /g) ?? []).length;
+        const x = block.x + (block.align === "center" ? (block.width - used) / 2 : block.align === "right" ? block.width - used : 0);
+        region.lines.push({ text: line.text, x, y: y + index * fitted.size * block.lineHeight, size: fitted.size, font: fontKey(block), wordSpacing: block.align === "justify" && !line.last && spaces ? (block.width - used) / spaces : 0 });
+      }
+      regions.push(region); ends.set(block.id, { page, y: y + block.height }); continue;
+    }
+    const step = block.fontSize * block.lineHeight;
     const lines = wrapText(text, font, block.fontSize, block.width);
     let region: PlannedRegion | undefined;
     // Keep short following blocks, including signatures, together on a page.
@@ -98,5 +124,5 @@ export async function planDocument(fields: DocumentFields, rawLayout: unknown, f
     }
     ends.set(block.id, { page, y });
   }
-  return { pages, regions, layout };
+  return { pages, regions, layout, backgrounds: [] };
 }

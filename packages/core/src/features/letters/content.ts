@@ -1,5 +1,7 @@
 import { z } from "zod";
 import { layoutSchema } from "./layout-schema";
+import { LETTER_LIMITS } from "./limits";
+const limits = LETTER_LIMITS.text;
 
 // The bundled PDF fonts cover Windows Latin text. Reject unsupported characters
 // before review so the approved copy can always be rendered without data loss.
@@ -7,17 +9,17 @@ const printable = (max: number, min = 1) => z.string().trim().min(min).max(max).
   !/[^\u0020-\u007e\u00a0-\u00ff\u20ac\u2018\u2019\u201c\u201d\u2013\u2014\n\r]/u.test(value),
 "Use Latin text for this PDF; other writing systems are not supported yet.");
 export const letterContentSchema = z.object({
-  title: printable(120), companyName: printable(120), recipientName: printable(120),
-  recipientEmail: z.union([z.email().max(254), z.literal("")]), documentDate: z.iso.date(),
-  body: printable(16000), emailSubject: printable(180), emailBody: printable(8000, 10),
+  title: printable(limits.title), companyName: printable(limits.companyName), recipientName: printable(limits.recipientName),
+  recipientEmail: z.union([z.email().max(limits.recipientEmail), z.literal("")]), documentDate: z.iso.date(),
+  body: printable(limits.body), emailSubject: printable(limits.emailSubject), emailBody: printable(limits.emailBody, 10),
   recipientPhone: z.string().regex(/^(\+?[1-9]\d{6,14})?$/, "Use an international phone number, for example +919876543210.").optional(),
-  whatsappText: printable(8000).optional(), layout: layoutSchema.nullable().optional(),
+  whatsappText: printable(limits.whatsappText).optional(), layout: layoutSchema.nullable().optional(),
 }).strict().refine(value => !Object.values(value).some(text => typeof text === "string" && /\{\{|\}\}/.test(text)) &&
   !value.layout?.blocks.some(block => /\{\{|\}\}/.test(block.text)), {
   message: "Fill or remove the remaining {{placeholders}} before saving. Custom details are optional when inserting a template.",
 });
 export type LetterContent = z.infer<typeof letterContentSchema>;
-export const templateSchema = z.object({ name: printable(100), title: printable(120), body: printable(12000), emailSubject: printable(180), emailBody: printable(6000, 10), whatsappText: printable(8000).optional(), layout: layoutSchema.nullable().optional() }).strict();
+export const templateSchema = z.object({ name: printable(limits.templateName), title: printable(limits.title), body: printable(limits.templateBody), emailSubject: printable(limits.emailSubject), emailBody: printable(limits.templateEmailBody, 10), whatsappText: printable(limits.whatsappText).optional(), layout: layoutSchema.nullable().optional() }).strict();
 export const placeholderNames = ["candidate_name", "date", "job_title", "start_date", "end_date", "company_name", "project_name", "custom_details"] as const;
 export function fillTemplate(text: string, values: Record<string, string>) {
   return text.replace(/\{\{\s*([a-z_]+)\s*\}\}/g, (original, key) => key === "custom_details" ? values[key]?.trim() ?? "" : values[key]?.trim() || original).replace(/\n[ \t]*\n(?:[ \t]*\n)+/g, "\n\n");

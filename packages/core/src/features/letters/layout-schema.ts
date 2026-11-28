@@ -1,11 +1,14 @@
 import { z } from "zod";
+import { LETTER_LIMITS } from "./limits";
+const limits = LETTER_LIMITS;
 
 export const latinText = (max: number, min = 0) => z.string().max(max).min(min).refine(value =>
   !/[^\u0020-\u007e\u00a0-\u00ff\u20ac\u2018\u2019\u201c\u201d\u2013\u2014\n\r]/u.test(value),
   "PDF text currently supports Latin characters.");
-const imageData = z.string().max(2800000).regex(/^data:image\/(png|jpeg);base64,[A-Za-z0-9+/=]+$/);
-export const pageSizeSchema = z.object({ width: z.number().min(72).max(3000), height: z.number().min(72).max(3000) }).strict();
+const imageData = z.string().max(limits.uploads.signatureDataUrlCharacters).regex(/^data:image\/(png|jpeg);base64,[A-Za-z0-9+/=]+$/);
+export const pageSizeSchema = z.object({ width: z.number().min(limits.pages.minDimension).max(limits.pages.maxDimension), height: z.number().min(limits.pages.minDimension).max(limits.pages.maxDimension) }).strict();
 export const contentAreaSchema = z.object({ left: z.number().min(0).max(1000), right: z.number().min(0).max(1000), top: z.number().min(12).max(1000), bottom: z.number().min(24).max(1000) }).strict();
+export const artworkFrameSchema = z.object({ x: z.number().min(0).max(3000), y: z.number().min(0).max(3000), width: z.number().min(12).max(3000), height: z.number().min(8).max(3000) }).strict();
 export const blockSchema = z.object({
   id: z.string().min(1).max(80), kind: z.enum(["text", "image"]),
   binding: z.enum(["title", "body", "companyName", "recipientName", "documentDate", "custom"]),
@@ -16,13 +19,14 @@ export const blockSchema = z.object({
   bold: z.boolean(), italic: z.boolean(), align: z.enum(["left", "center", "right", "justify"]),
   lineHeight: z.number().min(1).max(2.5), flow: z.boolean(),
   afterId: z.string().max(80).nullable(), gap: z.number().min(0).max(300),
+  textSizing: z.enum(["FLOW", "FIT"]).optional(), lockAspectRatio: z.boolean().optional(),
 }).strict();
 export const layoutSchema = z.object({
-  version: z.literal(1), pages: z.array(pageSizeSchema).min(1).max(30),
+  version: z.literal(1), pages: z.array(pageSizeSchema).min(1).max(limits.pages.explicit),
   marginTop: z.number().min(12).max(250), marginBottom: z.number().min(24).max(250),
   contentArea: contentAreaSchema.optional(), backgroundMode: z.enum(["ALL", "FIRST"]).optional(),
-  background: z.object({ name: z.string().max(160), kind: z.enum(["pdf", "png", "jpeg"]), data: z.string().max(4200000).regex(/^data:(application\/pdf|image\/png|image\/jpeg);base64,[A-Za-z0-9+/=]+$/) }).strict().nullable(),
-  blocks: z.array(blockSchema).max(80),
+  background: z.object({ name: z.string().max(160), kind: z.enum(["pdf", "png", "jpeg"]), data: z.string().max(limits.uploads.backgroundDataUrlCharacters).regex(/^data:(application\/pdf|image\/png|image\/jpeg);base64,[A-Za-z0-9+/=]+$/), frame: artworkFrameSchema.optional(), fit: z.enum(["CONTAIN", "STRETCH"]).optional() }).strict().nullable(),
+  blocks: z.array(blockSchema).max(limits.blocks.count),
 }).strict().superRefine((layout, context) => {
   const ids = new Set<string>();
   for (const [index, block] of layout.blocks.entries()) {
@@ -31,7 +35,7 @@ export const layoutSchema = z.object({
     ids.add(block.id);
     if (block.kind === "image" && !block.image) context.addIssue({ code: "custom", path: ["blocks", index, "image"], message: "Upload an image for this block." });
   }
-  if (JSON.stringify(layout).length > 7500000) context.addIssue({ code: "custom", message: "This layout is too large. Use smaller template and signature images." });
+  if (JSON.stringify(layout).length > limits.uploads.layoutJsonCharacters) context.addIssue({ code: "custom", message: "This layout is too large. Use smaller template and signature images." });
   if (!layout.contentArea) for (const page of layout.pages) if (page.height < layout.marginTop + layout.marginBottom + 30) context.addIssue({ code: "custom", message: "Page height must leave room between the top and bottom margins." });
   if (layout.contentArea) for (const page of layout.pages) {
     if (page.width < layout.contentArea.left + layout.contentArea.right + 24 || page.height < layout.contentArea.top + layout.contentArea.bottom + 30) context.addIssue({ code: "custom", path: ["contentArea"], message: "The letterhead margins leave too little room for content. Reduce them or use a larger page." });

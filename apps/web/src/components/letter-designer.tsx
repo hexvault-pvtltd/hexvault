@@ -7,6 +7,10 @@ import { decodeDataUrl, type DocumentFields, type DocumentPlan, type PlannedRegi
 import { defaultLetterLayout, newTextBlock, type LetterBlock, type LetterLayout, type PageSize } from "@core/features/letters/layout-schema";
 import { arrangeOnLetterhead, suggestedContentArea } from "@core/features/letters/letterhead";
 import { LetterheadSetup } from "./letterhead-setup";
+import { LetterGeometryControls } from "./letter-geometry-controls";
+import { resizeElementBox, type ElementBox, type ResizeHandle } from "@core/features/letters/geometry";
+import { LetterBlockOverlay } from "./letter-block-overlay";
+type ResizeSession = { id: string; handle: ResizeHandle; startX: number; startY: number; box: ElementBox; page: number; layout: LetterLayout };
 
 const field = "mt-1 block w-full rounded-md border border-slate-200 bg-white px-2 py-1.5 text-xs font-normal";
 const button = "rounded-md border border-slate-200 bg-white px-2.5 py-1.5 text-xs font-medium disabled:opacity-40";
@@ -52,6 +56,7 @@ export function LetterDesigner({ fields, value, onChange, disabled = false, read
   const [history, setHistory] = useState<LetterLayout[]>([]);
   const canvasRef = useRef<HTMLDivElement>(null);
   const dragRef = useRef<{ id: string; startX: number; startY: number; region: PlannedRegion; layout: LetterLayout } | null>(null);
+  const resizeRef = useRef<ResizeSession | null>(null);
   const locked = disabled || readOnly;
   const serialized = JSON.stringify({ ...fields, layout });
   useEffect(() => {
@@ -71,6 +76,7 @@ export function LetterDesigner({ fields, value, onChange, disabled = false, read
   const activePage = Math.min(pageIndex, (plan?.pages.length ?? layout.pages.length) - 1);
   const size = plan?.pages[activePage] ?? layout.pages[0];
   const selectedRegion = plan?.regions.find(region => region.id === selectedId && region.page === activePage) ?? plan?.regions.find(region => region.id === selectedId);
+  const selectedBox: ElementBox | null = selected ? { x: selected.afterId ? selectedRegion?.x ?? selected.x : selected.x, y: selected.afterId ? selectedRegion?.y ?? selected.y : selected.y, width: selected.width, height: selected.kind === "image" || selected.textSizing === "FIT" ? selected.height : selectedRegion?.height ?? selected.height } : null;
   function commit(next: LetterLayout, remember = true) {
     if (locked) return;
     if (remember) setHistory(previous => [...previous.slice(-19), structuredClone(layout)]);
@@ -79,6 +85,13 @@ export function LetterDesigner({ fields, value, onChange, disabled = false, read
   function patchBlock(changes: Partial<LetterBlock>, remember = true) {
     if (!selected) return;
     commit({ ...layout, blocks: layout.blocks.map(block => block.id === selectedId ? { ...block, ...changes } : block) }, remember);
+  }
+  function changeGeometry(patch: Partial<ElementBox>) {
+    if (!selected || !selectedBox) return;
+    const changes: Partial<LetterBlock> = { ...patch };
+    if (patch.x !== undefined || patch.y !== undefined) Object.assign(changes, { x: patch.x ?? selectedBox.x, y: patch.y ?? selectedBox.y, page: selectedRegion?.page ?? selected.page, afterId: null });
+    if (selected.kind === "text" && patch.height !== undefined) changes.textSizing = "FIT";
+    patchBlock(changes);
   }
   function position(x: number, y: number, page = activePage) {
     if (!selected) return;
@@ -147,6 +160,41 @@ export function LetterDesigner({ fields, value, onChange, disabled = false, read
     const y = snap(start.region.y + (event.clientY - start.startY) / rect.height * size.height);
     onChange({ ...start.layout, blocks: start.layout.blocks.map(block => block.id === start.id ? { ...block, page: start.region.page, x: Math.max(layout.contentArea?.left ?? 0, Math.min(x, size.width - (layout.contentArea?.right ?? 0) - block.width)), y: Math.max(layout.contentArea?.top ?? 0, Math.min(y, size.height - (layout.contentArea?.bottom ?? layout.marginBottom) - start.region.height)), afterId: null } : block) });
   }
+  function startResize(event: PointerEvent<HTMLButtonElement>, region: PlannedRegion, handle: ResizeHandle) {
+    event.preventDefault(); event.stopPropagation();
+    if (locked) return;
+    const block = layout.blocks.find(item => item.id === region.id)!;
+    const box = { x: block.x, y: block.afterId ? region.y : block.y, width: block.width, height: block.kind === "image" || block.textSizing === "FIT" ? block.height : region.height };
+    event.currentTarget.setPointerCapture(event.pointerId);
+    resizeRef.current = { id: region.id, handle, startX: event.clientX, startY: event.clientY, box, page: region.page, layout };
+    setHistory(previous => [...previous.slice(-19), structuredClone(layout)]);
+  }
+  function applyResize(start: ResizeSession, dx: number, dy: number, shift: boolean, remember = false) {
+    const block = start.layout.blocks.find(item => item.id === start.id)!;
+    const pageSize = plan?.pages[start.page] ?? size;
+    const ratio = shift || (block.kind === "image" && block.lockAspectRatio !== false);
+    const nextBox = resizeElementBox(start.box, start.handle, dx, dy, {
+      left: layout.contentArea?.left ?? 0, top: layout.contentArea?.top ?? 0, right: pageSize.width - (layout.contentArea?.right ?? 0), bottom: pageSize.height - (layout.contentArea?.bottom ?? layout.marginBottom),
+    }, ratio);
+    const heightChanged = /n|s/.test(start.handle) || ratio;
+    const patch: Partial<LetterBlock> = { width: nextBox.width,
+      ...(heightChanged ? { height: nextBox.height, ...(block.kind === "text" ? { textSizing: "FIT" as const } : {}) } : {}),
+      ...(/n|w/.test(start.handle) ? { x: nextBox.x, y: nextBox.y, page: start.page, afterId: null } : {}),
+    };
+    if (remember) setHistory(previous => [...previous.slice(-19), structuredClone(layout)]);
+    onChange({ ...start.layout, blocks: start.layout.blocks.map(item => item.id === start.id ? { ...item, ...patch } : item) });
+  }
+  function resizePointer(event: PointerEvent<HTMLButtonElement>) {
+    const start = resizeRef.current, rect = canvasRef.current?.getBoundingClientRect();
+    if (!start || !rect || locked) return;
+    const snap = (number: number) => grid && !event.altKey ? Math.round(number / 5) * 5 : number;
+    const pageSize = plan?.pages[start.page] ?? size;
+    applyResize(start, snap((event.clientX - start.startX) / rect.width * pageSize.width), snap((event.clientY - start.startY) / rect.height * pageSize.height), event.shiftKey);
+  }
+  function finishPointer(event: PointerEvent<HTMLButtonElement>) {
+    dragRef.current = null; resizeRef.current = null;
+    if (event.currentTarget.hasPointerCapture(event.pointerId)) event.currentTarget.releasePointerCapture(event.pointerId);
+  }
   function addText() {
     const id = crypto.randomUUID();
     commit({ ...layout, blocks: [...layout.blocks, newTextBlock(id, layout.contentArea
@@ -159,13 +207,18 @@ export function LetterDesigner({ fields, value, onChange, disabled = false, read
     {!readOnly && <div className="flex flex-wrap items-center gap-2"><label className={`relative ${button}`}>Upload letterhead / template<input disabled={locked} className="sr-only" type="file" accept="application/pdf,image/png,image/jpeg" onChange={event => { void upload(event.target.files?.[0], "template"); event.target.value = ""; }}/></label><label className={`relative ${button}`}>Add signature / image<input disabled={locked} className="sr-only" type="file" accept="image/png,image/jpeg" onChange={event => { void upload(event.target.files?.[0], "signature"); event.target.value = ""; }}/></label><button disabled={locked} type="button" className={button} onClick={addText}>Add text</button><button disabled={locked || history.length === 0} type="button" className={button} onClick={() => { const previous = history.at(-1); if (previous) { onChange(previous); setHistory(history.slice(0, -1)); } }}>Undo</button><button disabled={locked} type="button" className={button} onClick={() => commit(defaultLetterLayout())}>Reset layout</button>{layout.background && <button disabled={locked} type="button" className={button} onClick={() => commit({ ...layout, background: null })}>Remove {layout.background.name}</button>}</div>}
     {error && <p role="alert" className="rounded-md bg-rose-50 p-3 text-xs text-rose-700">{error} The last valid preview remains visible.</p>}
     {!readOnly && <LetterheadSetup layout={layout} disabled={locked} onChange={commit} onError={setError}/>}
+    {!readOnly && layout.background && <fieldset disabled={locked} className="rounded-lg border border-slate-200 bg-white p-4"><details><summary className="cursor-pointer text-xs font-semibold">Resize and position the letterhead artwork</summary><div className="mt-3 max-w-lg space-y-3"><LetterGeometryControls label="Letterhead" maxHeight={3000} box={layout.background.frame ?? plan?.backgrounds.find(item => item.page === activePage) ?? { x: 0, y: 0, width: size.width, height: size.height }} keepRatio={layout.background.fit !== "STRETCH"} onKeepRatio={keep => commit({ ...layout, background: { ...layout.background!, fit: keep ? "CONTAIN" : "STRETCH" } })} onChange={patch => {
+      const frame = layout.background!.frame ?? plan?.backgrounds.find(item => item.page === activePage) ?? { x: 0, y: 0, width: size.width, height: size.height };
+      commit({ ...layout, background: { ...layout.background!, frame: { x: patch.x ?? frame.x, y: patch.y ?? frame.y, width: patch.width ?? frame.width, height: patch.height ?? frame.height } } });
+    }}/><button type="button" className={button} onClick={() => { const background = { ...layout.background! }; delete background.frame; commit({ ...layout, background }); }}>Reset artwork to fit page</button><p className="text-xs text-slate-500">Applies to the letterhead on each page. Artwork extending beyond the paper is cropped. Recheck the printable area after moving the artwork.</p></div></details></fieldset>}
     <div className={`grid items-start gap-4 ${readOnly ? "" : "xl:grid-cols-[240px_minmax(0,1fr)]"}`}>
       {!readOnly && <fieldset disabled={locked} className="space-y-4 rounded-lg border border-slate-200 bg-white p-3">
         <details open><summary className="text-xs font-semibold">Page setup</summary><div className="mt-3 space-y-3"><label className="block text-xs">Paper size<select className={field} value="" onChange={event => { const presets: Record<string, PageSize> = { A4: { width: 595.28, height: 841.89 }, A3: { width: 841.89, height: 1190.55 }, A5: { width: 419.53, height: 595.28 }, Letter: { width: 612, height: 792 }, Legal: { width: 612, height: 1008 } }; if (presets[event.target.value]) resizePages(presets[event.target.value]); }}><option value="">Custom / choose preset</option>{["A4", "A3", "A5", "Letter", "Legal"].map(name => <option key={name}>{name}</option>)}</select></label><div className="grid grid-cols-2 gap-2"><label className="text-xs">Width (mm)<input className={field} type="number" min={25.4} max={1058} step={0.1} value={mm(layout.pages[0].width)} onChange={event => { const width = pt(Number(event.target.value)); if (width >= 72 && width <= 3000) resizePages({ ...layout.pages[0], width }); }}/></label><label className="text-xs">Height (mm)<input className={field} type="number" min={25.4} max={1058} step={0.1} value={mm(layout.pages[0].height)} onChange={event => { const height = pt(Number(event.target.value)); if (height >= 72 && height <= 3000) resizePages({ ...layout.pages[0], height }); }}/></label></div><div className="flex gap-2"><button type="button" className={button} onClick={() => resizePages({ width: Math.min(size.width, size.height), height: Math.max(size.width, size.height) })}>Portrait</button><button type="button" className={button} onClick={() => resizePages({ width: Math.max(size.width, size.height), height: Math.min(size.width, size.height) })}>Landscape</button></div>{!layout.contentArea && <div className="grid grid-cols-2 gap-2">{(["marginTop", "marginBottom"] as const).map(key => <label key={key} className="text-xs">{key === "marginTop" ? "Top" : "Bottom"} margin (pt)<input type="number" step="any" min={key === "marginBottom" ? 24 : 12} max={250} className={field} value={layout[key]} onChange={event => { const number = Number(event.target.value); if (number >= (key === "marginBottom" ? 24 : 12) && number <= 250) commit({ ...layout, [key]: number }); }}/></label>)}</div>}<button type="button" disabled={(plan?.pages.length ?? layout.pages.length) >= 30} className={button} onClick={() => { const pages = plan?.pages ?? layout.pages; commit({ ...layout, pages: [...pages, { ...size }] }); setPageIndex(pages.length); }}>Add page</button><label className="flex items-center gap-2 text-xs"><input type="checkbox" checked={grid} onChange={event => setGrid(event.target.checked)}/>Show grid and snap to 5 pt</label></div></details>
         <label className="block text-xs font-semibold">Select block<select value={selectedId} onChange={event => setSelectedId(event.target.value)} className={field}><option value="">Select...</option>{layout.blocks.map((block, index) => <option key={block.id} value={block.id}>{index + 1}. {block.kind === "image" ? "Signature / image" : block.binding === "custom" ? block.text.slice(0, 28) || "Text" : block.binding}</option>)}</select></label>
         {selected && <div className="space-y-3 border-t border-slate-200 pt-3">
           {selected.kind === "text" && <><label className="block text-xs">Text source<select value={selected.binding} className={field} onChange={event => patchBlock({ binding: event.target.value as LetterBlock["binding"] })}>{["title", "body", "companyName", "recipientName", "documentDate", "custom"].map(binding => <option key={binding} value={binding}>{binding === "custom" ? "Custom text / signature" : binding}</option>)}</select></label>{selected.binding === "custom" && <label className="block text-xs">Text<textarea aria-label="Custom block text" rows={4} maxLength={16000} value={selected.text} className={field} onChange={event => patchBlock({ text: event.target.value })}/></label>}<label className="block text-xs">Font<select value={selected.fontFamily} className={field} onChange={event => patchBlock({ fontFamily: event.target.value as LetterBlock["fontFamily"] })}>{["Helvetica", "Times", "Courier"].map(font => <option key={font}>{font}</option>)}</select></label><div className="grid grid-cols-2 gap-2"><label className="text-xs">Size (pt)<input className={field} type="number" step="any" min={6} max={120} value={selected.fontSize} onChange={event => { const number = Number(event.target.value); if (number >= 6 && number <= 120) patchBlock({ fontSize: number }); }}/></label><label className="text-xs">Line spacing<input className={field} type="number" min={1} max={2.5} step={0.1} value={selected.lineHeight} onChange={event => { const number = Number(event.target.value); if (number >= 1 && number <= 2.5) patchBlock({ lineHeight: number }); }}/></label></div><div className="flex gap-2"><button type="button" aria-pressed={selected.bold} className={`${button} ${selected.bold ? "bg-orange-100" : ""}`} onClick={() => patchBlock({ bold: !selected.bold })}>Bold</button><button type="button" aria-pressed={selected.italic} className={`${button} ${selected.italic ? "bg-orange-100" : ""}`} onClick={() => patchBlock({ italic: !selected.italic })}>Italic</button></div><label className="block text-xs">Text alignment<select value={selected.align} className={field} onChange={event => patchBlock({ align: event.target.value as LetterBlock["align"] })}>{["left", "center", "right", "justify"].map(align => <option key={align}>{align}</option>)}</select></label></>}
-          <div className="grid grid-cols-2 gap-2">{(["x", "y", "width", ...(selected.kind === "image" ? ["height"] : [])] as ("x" | "y" | "width" | "height")[]).map(key => <label key={key} className="text-xs">{key === "x" ? "Left" : key === "y" ? "Top" : key} (pt)<input className={field} type="number" step="any" min={key === "width" ? 12 : key === "height" ? 8 : 0} max={key === "height" ? 1500 : 3000} value={Math.round((selected.afterId && selectedRegion && (key === "x" || key === "y") ? selectedRegion[key] : selected[key]) * 10) / 10} onChange={event => { const number = Number(event.target.value); if (number >= 0 && number <= 3000) patchBlock({ [key]: number, ...(key === "x" || key === "y" ? { afterId: null, page: activePage, x: key === "x" ? number : selectedRegion?.x ?? selected.x, y: key === "y" ? number : selectedRegion?.y ?? selected.y } : {}) }); }}/></label>)}</div>
+          {selectedBox && <LetterGeometryControls label="Element" box={selectedBox} onChange={changeGeometry} keepRatio={selected.kind === "image" && selected.lockAspectRatio !== false} onKeepRatio={selected.kind === "image" ? keep => patchBlock({ lockAspectRatio: keep }) : undefined}/>}
+          {selected.kind === "text" && <div className="space-y-2"><label className="block text-xs">Text box sizing<select aria-label="Text box sizing" value={selected.textSizing ?? "FLOW"} onChange={event => patchBlock({ textSizing: event.target.value as "FLOW" | "FIT", ...(event.target.value === "FIT" ? { height: Math.min(1500, selectedRegion?.height ?? selected.height) } : {}) })} className={field}><option value="FLOW">Automatic height / flow onto pages</option><option value="FIT">Fit text inside width and height</option></select></label><p className="text-xs leading-5 text-slate-500">{selected.textSizing === "FIT" ? "Font size is the maximum. Text shrinks to fit; enlarge the box if it cannot fit at 6 pt." : "Resize left/right edges to reflow text. Changing height uses a fixed text box; select automatic height to restore page flow."}</p>{selected.textSizing === "FIT" && selectedRegion?.lines[0] && <p className="text-xs text-slate-500">Rendered font: {selectedRegion.lines[0].size.toFixed(3)} pt</p>}</div>}
           <div className="flex flex-wrap gap-1" aria-label="Move selected block">{[["←", -5, 0, "Move left"], ["↑", 0, -5, "Move up"], ["↓", 0, 5, "Move down"], ["→", 5, 0, "Move right"]].map(([symbol, dx, dy, label]) => <button key={String(label)} type="button" className={button} aria-label={String(label)} onClick={() => nudge(Number(dx), Number(dy))}>{symbol}</button>)}</div>
           <div className="flex flex-wrap gap-1">{(["left", "center", "right"] as const).map(align => <button key={align} type="button" className={button} onClick={() => position(align === "left" ? 36 : align === "right" ? size.width - 36 - selected.width : (size.width - selected.width) / 2, selectedRegion?.y ?? selected.y)}>{align} on page</button>)}</div>
           <label className="block text-xs">Follow block<select value={selected.afterId ?? ""} className={field} onChange={event => patchBlock({ afterId: event.target.value || null })}><option value="">Manual position</option>{layout.blocks.slice(0, layout.blocks.findIndex(block => block.id === selectedId)).map(block => <option key={block.id} value={block.id}>{block.binding === "custom" ? block.text.slice(0, 20) : block.binding}</option>)}</select></label>
@@ -180,11 +233,14 @@ export function LetterDesigner({ fields, value, onChange, disabled = false, read
           {preview && <PdfCanvas bytes={preview.bytes} pageNumber={activePage}/>}
           {!readOnly && grid && <div aria-hidden="true" className="pointer-events-none absolute inset-0 opacity-25" style={{ backgroundImage: "linear-gradient(#94a3b8 1px, transparent 1px), linear-gradient(90deg, #94a3b8 1px, transparent 1px)", backgroundSize: `${20 / size.width * 100}% ${20 / size.height * 100}%` }}/>}
           {!readOnly && layout.contentArea && <div aria-hidden="true" className="pointer-events-none absolute border-2 border-dashed border-emerald-600" style={{ left: `${layout.contentArea.left / size.width * 100}%`, top: `${layout.contentArea.top / size.height * 100}%`, right: `${layout.contentArea.right / size.width * 100}%`, bottom: `${layout.contentArea.bottom / size.height * 100}%` }}><span className="absolute -top-5 left-0 rounded bg-emerald-50 px-1 text-[10px] text-emerald-900">Printable area</span></div>}
-          {!readOnly && plan?.regions.filter(region => region.page === activePage).map((region, index) => <button key={`${region.id}-${index}`} type="button" disabled={locked} aria-label={`Select ${layout.blocks.find(block => block.id === region.id)?.binding ?? "text"} block`} onFocus={() => setSelectedId(region.id)} onPointerDown={event => startDrag(event, region)} onPointerMove={drag} onPointerUp={event => { dragRef.current = null; if (event.currentTarget.hasPointerCapture(event.pointerId)) event.currentTarget.releasePointerCapture(event.pointerId); }} onPointerCancel={() => { dragRef.current = null; }} onClick={() => setSelectedId(region.id)} onKeyDown={event => {
-            const step = event.shiftKey ? 10 : 1;
-            const movement: Record<string, [number, number]> = { ArrowLeft: [-step, 0], ArrowRight: [step, 0], ArrowUp: [0, -step], ArrowDown: [0, step] };
-            if (movement[event.key]) { event.preventDefault(); setSelectedId(region.id); nudge(...movement[event.key]); }
-          }} className={`absolute touch-none border bg-transparent text-left outline-offset-2 ${region.id === selectedId ? "z-10 cursor-move border-orange-500 bg-orange-400/5 ring-1 ring-orange-500" : "border-transparent hover:border-slate-400"}`} style={{ left: `${region.x / size.width * 100}%`, top: `${region.y / size.height * 100}%`, width: `${region.width / size.width * 100}%`, height: `${Math.max(region.height, 10) / size.height * 100}%` }}>{region.id === selectedId && <span aria-hidden="true" className="absolute -right-2 -top-2 flex h-5 w-5 items-center justify-center rounded-full bg-orange-500 text-xs text-white">↔</span>}</button>)}
+          {!readOnly && plan?.regions.filter(region => region.page === activePage).map((region, index) => {
+            const block = layout.blocks.find(item => item.id === region.id);
+            if (!block) return null;
+            const box: ElementBox = { x: block.x, y: block.afterId || region.page !== block.page ? region.y : block.y, width: block.width, height: block.kind === "image" || block.textSizing === "FIT" ? block.height : region.height };
+            return <LetterBlockOverlay key={region.id + "-" + index} box={box} size={size} selected={region.id === selectedId} disabled={locked} label={block.binding}
+              onSelect={() => setSelectedId(region.id)} onMoveStart={event => startDrag(event, region)} onMove={drag} onEnd={finishPointer} onMoveKey={nudge}
+              onResizeStart={(event, handle) => startResize(event, region, handle)} onResize={resizePointer} onResizeKey={(handle, dx, dy, shift) => applyResize({ id: region.id, handle, startX: 0, startY: 0, box, page: region.page, layout }, dx, dy, shift, true)}/>;
+          })}
         </div></div>
       </div>
     </div>
