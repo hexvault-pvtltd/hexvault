@@ -22,7 +22,7 @@ const navigation: NavGroup[] = [
   { title: "HR & hiring", icon: FileText, links: [], sections: [
     { title: "Recruitment", links: [["Job postings", "/hr/jobs", BriefcaseBusiness]] },
     { title: "Employee lifecycle", links: [["Onboarding", "/hr/onboarding", BriefcaseBusiness], ["Offboarding", "/hr/offboarding", BriefcaseBusiness]] },
-    { title: "Records", links: [["Employee documents", "/hr/documents", FileText]] },
+    { title: "Records", links: [["Employee documents", "/hr/documents", FileText], ["Letters & certificates", "/hr/letters", FileText]] },
   ] },
   { title: "Attendance & leave", icon: CalendarDays, links: [], sections: [
     { title: "Attendance", links: [["Attendance", "/attendance", CalendarDays], ["Corrections", "/attendance/corrections", CalendarDays]] },
@@ -57,6 +57,7 @@ const restrictedRoutes: Record<string, readonly string[]> = {
   "/holidays": OWNER_HR,
   "/leave/policies": OWNER_HR,
   "/hr/documents": OWNER_HR,
+  "/hr/letters": [...MANAGEMENT, "PROJECT_MANAGER"],
   "/hr/jobs": OWNER_HR,
   "/settings/storage": ["OWNER"],
   "/backups": ["OWNER"],
