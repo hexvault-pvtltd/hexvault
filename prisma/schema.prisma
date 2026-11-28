@@ -1164,3 +1164,40 @@ model CertificateVerificationLimit {
   expiresAt DateTime
   @@index([expiresAt])
 }
+
+// Approval applies to an immutable revision, including recipient and email copy.
+model GeneratedLetter {
+  id String @id @default(uuid()) @db.Uuid
+  title String
+  companyName String
+  recipientName String
+  recipientEmail String
+  documentDate String
+  body String @db.Text
+  emailSubject String
+  emailBody String @db.Text
+  status String @default("DRAFT")
+  revision Int @default(1)
+  createdBy String @db.Uuid
+  approvedBy String? @db.Uuid
+  approvedAt DateTime?
+  feedback String?
+  sentBy String? @db.Uuid
+  sentAt DateTime?
+  deliveryMethod String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  @@index([status, createdAt])
+  @@index([createdBy, createdAt])
+}
+
+model LetterTemplate {
+  id String @id @default(uuid()) @db.Uuid
+  name String
+  title String
+  body String @db.Text
+  emailSubject String
+  emailBody String @db.Text
+  createdBy String @db.Uuid
+  createdAt DateTime @default(now())
+}
