@@ -16,10 +16,10 @@ export function nextLetterStatus(actor: LetterActor, status: string, action: str
     if (!["DRAFT", "CHANGES_REQUESTED"].includes(status)) throw new LetterError(409, "Only a draft or returned letter can be submitted.");
     return "PENDING_APPROVAL";
   }
-  if (action === "SEND") {
-    if (!actor.roles.includes("HR")) throw new LetterError(403, "Only HR can send approved letters.");
-    if (status !== "APPROVED") throw new LetterError(409, "Owner approval is required before sending this letter.");
-    return "SENDING";
+  if (action === "SHARE") {
+    if (!actor.roles.includes("HR")) throw new LetterError(403, "Only HR can share approved letters.");
+    if (status !== "APPROVED") throw new LetterError(409, "Owner approval is required before sharing this letter.");
+    return "APPROVED";
   }
   throw new LetterError(422, "Unknown letter action.");
 }

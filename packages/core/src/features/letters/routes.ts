@@ -1,16 +1,22 @@
 import { z } from "zod";
+import { Prisma } from "@prisma/client";
 import { db } from "@core/lib/db";
 import { fail, ok } from "@core/lib/http";
 import { letterActor } from "./access";
 import { letterContentSchema, starterTemplates, templateSchema } from "./content";
 import { assertLetterAccess, isLetterAdmin, LetterError } from "./policy";
-import { changeLetter, deliverLetter, editLetter } from "./service";
+import { changeLetter, editLetter, letterData, prepareLetterShare, validateLetterPdf } from "./service";
 import { renderLetterPdf } from "./pdf";
 
 const respond = (error: unknown) => error instanceof LetterError
   ? Response.json({ error: { code: "LETTER_ERROR", message: error.message } }, { status: error.status }) : fail(error);
 const key = z.uuid();
 type Context = { params: Promise<{ id: string }> };
+async function requestBody(request: Request) {
+  const body = await request.text();
+  if (body.length > 8500000) throw new LetterError(413, "This document is too large. Use smaller template and signature images.");
+  return JSON.parse(body);
+}
 export async function listLetters() {
   try {
     const actor = await letterActor();
@@ -25,9 +31,10 @@ export async function listLetters() {
 export async function createLetter(request: Request) {
   try {
     const actor = await letterActor();
-    const input = letterContentSchema.parse(await request.json());
+    const input = letterContentSchema.parse(await requestBody(request));
+    await validateLetterPdf(input);
     const item = await db.$transaction(async tx => {
-      const letter = await tx.generatedLetter.create({ data: { ...input, createdBy: actor.id } });
+      const letter = await tx.generatedLetter.create({ data: { ...letterData(input), createdBy: actor.id } });
       await tx.auditLog.create({ data: { actorId: actor.id, action: "letter.created", resourceType: "generated_letter", resourceId: letter.id } });
       return letter;
     });
@@ -37,20 +44,15 @@ export async function createLetter(request: Request) {
 export async function updateLetter(request: Request, context: Context) {
   try {
     const actor = await letterActor(), id = key.parse((await context.params).id);
-    const input = z.object({ revision: z.number().int().positive(), content: letterContentSchema }).strict().parse(await request.json());
+    const input = z.object({ revision: z.number().int().positive(), content: letterContentSchema }).strict().parse(await requestBody(request));
     return ok({ item: await editLetter(actor, id, input.revision, input.content) });
   } catch (error) { return respond(error); }
 }
 export async function actOnLetter(request: Request, context: Context) {
   try {
     const actor = await letterActor(), id = key.parse((await context.params).id);
-    const input = z.object({ revision: z.number().int().positive(), action: z.enum(["SUBMIT", "APPROVE", "RETURN", "SEND"]), feedback: z.string().trim().min(1).max(2000).optional(), method: z.enum(["EMAIL", "GMAIL"]).optional() }).strict().parse(await request.json());
+    const input = z.object({ revision: z.number().int().positive(), action: z.enum(["SUBMIT", "APPROVE", "RETURN"]), feedback: z.string().trim().min(1).max(2000).optional() }).strict().parse(await requestBody(request));
     if (input.action === "RETURN" && !input.feedback) throw new LetterError(422, "Give a reason so the author can revise this letter.");
-    if (input.action === "SEND") {
-      if (!input.method) throw new LetterError(422, "Choose email or Gmail.");
-      await deliverLetter(actor, id, input.revision, input.method);
-      return ok({ sent: true });
-    }
     return ok({ item: await changeLetter(actor, id, input.revision, input.action, input.feedback) });
   } catch (error) { return respond(error); }
 }
@@ -68,8 +70,16 @@ export async function downloadLetter(_request: Request, context: Context) {
 export async function createTemplate(request: Request) {
   try {
     const actor = await letterActor();
-    const input = templateSchema.parse(await request.json());
-    const item = await db.letterTemplate.create({ data: { ...input, createdBy: actor.id } });
+    const input = templateSchema.parse(await requestBody(request));
+    const item = await db.letterTemplate.create({ data: { ...input, whatsappText: input.whatsappText ?? "", layout: input.layout ?? Prisma.DbNull, createdBy: actor.id } });
     return ok({ item }, 201);
+  } catch (error) { return respond(error); }
+}
+export async function shareLetter(request: Request, context: Context) {
+  try {
+    const actor = await letterActor(), id = key.parse((await context.params).id);
+    const input = z.object({ revision: z.number().int().positive(), channel: z.enum(["GMAIL", "EMAIL", "WHATSAPP", "DEVICE"]) }).strict().parse(await requestBody(request));
+    const { letter, pdf } = await prepareLetterShare(actor, id, input.revision, input.channel);
+    return Response.json({ data: { filename: `letter-${id}.pdf`, pdf: Buffer.from(pdf).toString("base64"), recipientEmail: letter.recipientEmail, recipientPhone: letter.recipientPhone, subject: letter.emailSubject, emailText: letter.emailBody, whatsappText: letter.whatsappText || letter.emailBody } }, { headers: { "cache-control": "private, no-store" } });
   } catch (error) { return respond(error); }
 }

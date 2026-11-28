@@ -2,14 +2,6 @@ import nodemailer from "nodemailer";
 
 export type MailInput = { to: string; subject: string; text: string; html: string; attachments?: { filename: string; content: Buffer; contentType: string }[] };
 
-export async function sendGmail(input: MailInput) {
-  const user = process.env.GMAIL_USER;
-  const pass = process.env.GMAIL_APP_PASSWORD;
-  if (!user || !pass) throw new Error("Gmail is not configured. Set GMAIL_USER and GMAIL_APP_PASSWORD.");
-  const transport = nodemailer.createTransport({ host: "smtp.gmail.com", port: 465, secure: true, auth: { user, pass }, connectionTimeout: 15000, socketTimeout: 30000 });
-  await transport.sendMail({ from: user, ...input });
-}
-
 export async function sendMail(input: MailInput) {
   const resendKey = process.env.RESEND_API_KEY;
   if (resendKey) {
