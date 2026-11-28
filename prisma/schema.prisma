@@ -1176,6 +1176,9 @@ model GeneratedLetter {
   body String @db.Text
   emailSubject String
   emailBody String @db.Text
+  recipientPhone String @default("")
+  whatsappText String @default("") @db.Text
+  layout Json?
   status String @default("DRAFT")
   revision Int @default(1)
   createdBy String @db.Uuid
@@ -1198,6 +1201,8 @@ model LetterTemplate {
   body String @db.Text
   emailSubject String
   emailBody String @db.Text
+  whatsappText String @default("") @db.Text
+  layout Json?
   createdBy String @db.Uuid
   createdAt DateTime @default(now())
 }

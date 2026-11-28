@@ -1,20 +1,23 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 import { mkdir, writeFile } from "node:fs/promises";
-import { PDFDocument } from "pdf-lib";
-import { db } from "../packages/core/src/lib/db";
-import { sendMail } from "../packages/core/src/lib/email";
-import { fillTemplate, letterContentSchema, type LetterContent } from "../packages/core/src/features/letters/content";
-import { nextLetterStatus, assertLetterAccess } from "../packages/core/src/features/letters/policy";
-import { changeLetter, deliverLetter, editLetter } from "../packages/core/src/features/letters/service";
-import { renderLetterPdf } from "../packages/core/src/features/letters/pdf";
+import { PDFDocument, rgb } from "pdf-lib";
 import type { GeneratedLetter } from "@prisma/client";
+import { db } from "../packages/core/src/lib/db";
+import { clearOptionalDetails, letterContentSchema, fillTemplate, unresolvedPlaceholders, type LetterContent } from "../packages/core/src/features/letters/content";
+import { arrangeOnLetterhead, suggestedContentArea } from "../packages/core/src/features/letters/letterhead";
+import { defaultLetterLayout, layoutSchema, newTextBlock } from "../packages/core/src/features/letters/layout-schema";
+import { planDocument } from "../packages/core/src/features/letters/layout";
+import { nextLetterStatus, assertLetterAccess } from "../packages/core/src/features/letters/policy";
+import { changeLetter, editLetter, prepareLetterShare } from "../packages/core/src/features/letters/service";
+import { buildLetterPdf, renderLetterPdf } from "../packages/core/src/features/letters/pdf";
+import { composeLinks } from "../packages/core/src/features/letters/sharing";
 
-const content: LetterContent = { title: "Project completion certificate", companyName: "HEXVAULT", recipientName: "Alex Candidate", recipientEmail: "alex@example.com", documentDate: "2026-11-28", body: "This certifies that Alex Candidate successfully completed their contribution to the workforce project.\n\nTheir work covered design, implementation, and testing.\n\nHuman Resources\nHEXVAULT", emailSubject: "Your project completion certificate", emailBody: "Dear Alex,\n\nPlease find your approved certificate attached.\n\nRegards,\nHuman Resources" };
+const content: LetterContent = { title: "Project completion certificate", companyName: "HEXVAULT", recipientName: "Alex Candidate", recipientEmail: "alex@example.com", recipientPhone: "+919876543210", documentDate: "2026-11-28", body: "This certifies that Alex Candidate successfully completed their contribution to the workforce project.\n\nTheir work covered design, implementation, and testing.", emailSubject: "Your project completion certificate", emailBody: "Dear Alex,\n\nPlease find your approved certificate attached.\n\nRegards,\nHuman Resources", whatsappText: "Hello Alex, please find your certificate attached." };
 const hr = { id: "hr", roles: ["HR"] }, owner = { id: "owner", roles: ["OWNER"] }, manager = { id: "manager", roles: ["TEAM_LEAD"] };
 function database(status = "DRAFT") {
-  let row: GeneratedLetter = { ...content, id: "00000000-0000-4000-8000-000000000001", createdBy: hr.id, status, revision: 1, approvedBy: status === "APPROVED" ? owner.id : null, approvedAt: status === "APPROVED" ? new Date() : null, feedback: null, sentBy: null, sentAt: null, deliveryMethod: null, createdAt: new Date(), updatedAt: new Date() };
-  const audit: unknown[] = [];
+  let row: GeneratedLetter = { ...content, recipientPhone: content.recipientPhone!, whatsappText: content.whatsappText!, layout: null, id: "00000000-0000-4000-8000-000000000001", createdBy: hr.id, status, revision: 1, approvedBy: status === "APPROVED" ? owner.id : null, approvedAt: status === "APPROVED" ? new Date() : null, feedback: null, sentBy: null, sentAt: null, deliveryMethod: null, createdAt: new Date(), updatedAt: new Date() };
+  const audit: { data: { action: string; metadata?: unknown } }[] = [];
   const client = {
     generatedLetter: {
       findUnique: async () => ({ ...row }), findUniqueOrThrow: async () => ({ ...row }),
@@ -23,103 +26,169 @@ function database(status = "DRAFT") {
         row = { ...row, ...data, revision: typeof data.revision === "object" ? row.revision + 1 : row.revision } as GeneratedLetter;
         return { count: 1 };
       },
-    }, auditLog: { create: async (data: unknown) => { audit.push(data); } },
+    }, auditLog: { create: async (data: { data: { action: string } }) => { audit.push(data); } },
     $transaction: async <T>(run: (tx: unknown) => Promise<T>) => run(client),
   };
-  return { client: client as unknown as typeof db, row: () => row, audit };
+  return { client: client as unknown as typeof db, row: () => row, audit, bump: () => { row.revision++; } };
 }
-
-test("HR and managers cannot approve; owner without HR cannot send; no early sends", () => {
+test("only owner can approve and only HR can prepare sharing after approval", () => {
   for (const actor of [hr, manager]) assert.throws(() => nextLetterStatus(actor, "PENDING_APPROVAL", "APPROVE"), /Only the owner/);
-  assert.throws(() => nextLetterStatus(owner, "APPROVED", "SEND"), /Only HR/);
-  for (const status of ["DRAFT", "PENDING_APPROVAL", "CHANGES_REQUESTED", "SENDING", "SENT", "DELIVERY_UNKNOWN"]) assert.throws(() => nextLetterStatus(hr, status, "SEND"), /Owner approval/);
+  assert.throws(() => nextLetterStatus(owner, "APPROVED", "SHARE"), /Only HR/);
+  for (const status of ["DRAFT", "PENDING_APPROVAL", "CHANGES_REQUESTED"]) assert.throws(() => nextLetterStatus(hr, status, "SHARE"), /Owner approval/);
+  assert.throws(() => nextLetterStatus(hr, "APPROVED", "SEND"), /Unknown letter action/);
   assert.throws(() => assertLetterAccess(manager, { createdBy: hr.id }), /own letters/);
 });
-
-test("owner approval and returns enforce the current revision", async () => {
+test("approval and owner feedback protect the current revision", async () => {
   const state = database();
   await changeLetter(hr, state.row().id, 1, "SUBMIT", undefined, state.client);
-  assert.equal(state.row().status, "PENDING_APPROVAL");
   await assert.rejects(changeLetter(owner, state.row().id, 1, "APPROVE", undefined, state.client), /changed/);
-  await changeLetter(owner, state.row().id, 2, "RETURN", "Correct the start date", state.client);
-  assert.equal(state.row().status, "CHANGES_REQUESTED");
-  assert.equal(state.row().feedback, "Correct the start date");
+  await changeLetter(owner, state.row().id, 2, "RETURN", "Correct the date", state.client);
+  assert.equal(state.row().feedback, "Correct the date");
   await changeLetter(hr, state.row().id, 3, "SUBMIT", undefined, state.client);
   await changeLetter(owner, state.row().id, 4, "APPROVE", undefined, state.client);
   assert.equal(state.row().approvedBy, owner.id);
-  assert.equal(state.row().status, "APPROVED");
 });
-
-test("changing approved recipient or content clears approval and prevents sending", async () => {
+test("changing layout, signature, WhatsApp copy, or recipient clears approval", async () => {
   const state = database("APPROVED");
-  await editLetter(hr, state.row().id, 1, { ...content, recipientEmail: "changed@example.com" }, state.client);
-  assert.equal(state.row().status, "DRAFT");
-  assert.equal(state.row().approvedBy, null);
-  assert.equal(state.row().approvedAt, null);
-  await assert.rejects(deliverLetter(hr, state.row().id, 2, "EMAIL", state.client), /Owner approval/);
+  const layout = defaultLetterLayout(); layout.blocks.find(block => block.id === "signature")!.text = "Jane Example\nProject manager";
+  await editLetter(hr, state.row().id, 1, { ...content, layout, whatsappText: "An updated approved message.", recipientPhone: "+441234567890" }, state.client);
+  assert.equal(state.row().status, "DRAFT"); assert.equal(state.row().approvedBy, null); assert.equal(state.row().approvedAt, null);
+  await assert.rejects(prepareLetterShare(hr, state.row().id, 2, "WHATSAPP", state.client), /Owner approval/);
 });
-
-test("concurrent send requests deliver exactly one approved PDF to the approved recipient", async () => {
-  const state = database("APPROVED");
-  const deliveries: unknown[] = [];
-  const sender = async (input: { to: string; attachments?: { content: Buffer }[] }) => { deliveries.push(input); assert.equal(input.to, content.recipientEmail); assert.equal(input.attachments?.[0].content.subarray(0, 4).toString(), "%PDF"); };
-  const results = await Promise.allSettled([1, 2].map(() => deliverLetter(hr, state.row().id, 1, "EMAIL", state.client, { email: sender, gmail: sender })));
-  assert.equal(results.filter(result => result.status === "fulfilled").length, 1);
-  assert.equal(deliveries.length, 1); assert.equal(state.row().status, "SENT");
-  assert.equal(state.row().sentBy, hr.id); assert(state.row().sentAt);
-});
-
-test("Gmail uses its selected sender and uncertain delivery cannot be retried", async () => {
-  const state = database("APPROVED"); let companyCalls = 0, gmailCalls = 0;
-  const delivery = { email: async () => { companyCalls++; }, gmail: async () => { gmailCalls++; throw new Error("Timeout after possible SMTP acceptance"); } };
-  await assert.rejects(deliverLetter(hr, state.row().id, 1, "GMAIL", state.client, delivery), /could not be confirmed/);
-  assert.equal(companyCalls, 0); assert.equal(gmailCalls, 1); assert.equal(state.row().status, "DELIVERY_UNKNOWN");
-  await assert.rejects(deliverLetter(hr, state.row().id, 2, "GMAIL", state.client, delivery), /Owner approval/);
-  assert.equal(gmailCalls, 1);
-});
-
-test("templates do not release unresolved placeholders or unsupported PDF text", () => {
-  assert.equal(fillTemplate("Dear {{candidate_name}}: {{custom_details}}", { candidate_name: "Alex" }), "Dear Alex: {{custom_details}}");
-  assert(!letterContentSchema.safeParse({ ...content, body: "Dear {{candidate_name}}, please accept this letter." }).success);
-  assert(!letterContentSchema.safeParse({ ...content, recipientName: "Alex 😀" }).success);
-  assert(!letterContentSchema.safeParse({ ...content, recipientEmail: "invalid" }).success);
-});
-
-test("Resend and Brevo receive the original PDF as a base64 attachment", async () => {
-  const envKeys = ["RESEND_API_KEY", "RESEND_FROM", "BREVO_API_KEY", "SMTP_FROM"] as const;
-  const previous = Object.fromEntries(envKeys.map(key => [key, process.env[key]]));
-  const originalFetch = globalThis.fetch;
-  const requests: { url: string; body: Record<string, unknown> }[] = [];
-  globalThis.fetch = async (url, init) => {
-    requests.push({ url: String(url), body: JSON.parse(String(init?.body)) });
-    return new Response("{}", { status: 200 });
-  };
+test("sharing returns a PDF without contacting a mail provider or marking the letter sent", async () => {
+  const state = database("APPROVED"), originalFetch = globalThis.fetch;
+  globalThis.fetch = async () => { throw new Error("No email provider should be called."); };
   try {
-    const bytes = Buffer.from("%PDF-original-test-bytes");
-    const input = { to: content.recipientEmail, subject: content.emailSubject, text: content.emailBody, html: "<p>Approved certificate attached</p>", attachments: [{ filename: "certificate.pdf", content: bytes, contentType: "application/pdf" }] };
-    process.env.RESEND_API_KEY = "test-key"; process.env.RESEND_FROM = "hr@example.com";
-    await sendMail(input);
-    assert.equal(requests[0].url, "https://api.resend.com/emails");
-    assert.deepEqual(requests[0].body.attachments, [{ filename: "certificate.pdf", content: bytes.toString("base64") }]);
-    delete process.env.RESEND_API_KEY;
-    process.env.BREVO_API_KEY = "test-key"; process.env.SMTP_FROM = "HR <hr@example.com>";
-    await sendMail(input);
-    assert.equal(requests[1].url, "https://api.brevo.com/v3/smtp/email");
-    assert.deepEqual(requests[1].body.attachment, [{ name: "certificate.pdf", content: bytes.toString("base64") }]);
-  } finally {
-    globalThis.fetch = originalFetch;
-    for (const key of envKeys) { if (previous[key] === undefined) delete process.env[key]; else process.env[key] = previous[key]; }
-  }
+    const result = await prepareLetterShare(hr, state.row().id, 1, "GMAIL", state.client);
+    assert.equal(Buffer.from(result.pdf).subarray(0, 4).toString(), "%PDF");
+    assert.equal(state.row().status, "APPROVED"); assert.equal(state.row().sentAt, null);
+    assert.equal(state.audit.at(-1)?.data.action, "letter.share_prepared");
+    state.bump();
+    await assert.rejects(prepareLetterShare(hr, state.row().id, 1, "GMAIL", state.client), /changed/);
+  } finally { globalThis.fetch = originalFetch; }
 });
-
-test("PDFs paginate long text and produce review artifacts", async () => {
+test("composer links encode messages and recipients without attachments or credentials", () => {
+  const links = composeLinks({ recipientEmail: "alex+hr@example.com", recipientPhone: "+919876543210", subject: "Certificate & offer", emailText: "Line one\nLine two & three", whatsappText: "Hello Alex & team 👋" });
+  const gmail = new URL(links.gmail), whatsapp = new URL(links.whatsapp);
+  assert.equal(gmail.searchParams.get("to"), "alex+hr@example.com");
+  assert.equal(gmail.searchParams.get("body"), "Line one\nLine two & three");
+  assert.equal(whatsapp.pathname, "/919876543210"); assert.equal(whatsapp.searchParams.get("text"), "Hello Alex & team 👋");
+  assert(links.email.startsWith("mailto:alex%2Bhr%40example.com?"));
+});
+test("placeholders and malformed geometry cannot enter an approved letter", async () => {
+  assert.equal(fillTemplate("Dear {{candidate_name}}", { candidate_name: "Alex" }), "Dear Alex");
+  const layout = defaultLetterLayout(); layout.blocks[0].text = "{{missing_value}}";
+  assert(!letterContentSchema.safeParse({ ...content, layout }).success);
+  layout.blocks[0].text = "Company"; layout.blocks[0].afterId = "signature";
+  assert(!layoutSchema.safeParse(layout).success);
+  const overflow = defaultLetterLayout(); overflow.blocks[0].width = 2000;
+  await assert.rejects(renderLetterPdf({ ...content, id: "overflow", layout: overflow }, false), /past the page/);
+});
+test("empty custom details are omitted while required template fields remain visible", () => {
+  assert.equal(fillTemplate("Dear {{candidate_name}},\n\n{{custom_details}}\n\nWelcome.", { candidate_name: "Alex" }), "Dear Alex,\n\nWelcome.");
+  assert.equal(fillTemplate("Role: {{job_title}}", {}), "Role: {{job_title}}");
+  const cleaned = clearOptionalDetails({ ...content, body: "Hello Alex,\n\n{{custom_details}}\n\nYour position is {{job_title}}." });
+  assert(!cleaned.body.includes("custom_details"));
+  assert.deepEqual(unresolvedPlaceholders(cleaned), ["job_title"]);
+});
+test("letterhead arrangement reserves header, footer, and borders across every page", async () => {
+  const layout = defaultLetterLayout();
+  const area = { top: 145, bottom: 95, left: 65, right: 75 };
+  const arranged = arrangeOnLetterhead(layout, area);
+  assert(!arranged.blocks.some(block => block.binding === "companyName"));
+  assert.equal(arranged.blocks[0].y, area.top);
+  const fields = { ...content, body: "An extended letter with duties, terms, and candidate information. ".repeat(200) };
+  const plan = await planDocument(fields, arranged);
+  assert(plan.pages.length > 1);
+  for (const region of plan.regions) {
+    assert(region.y >= area.top - 0.1);
+    assert(region.y + region.height <= plan.pages[region.page].height - area.bottom + 0.1);
+    assert(region.x >= area.left);
+    assert(region.x + region.width <= plan.pages[region.page].width - area.right + 0.1);
+  }
+  const body = plan.regions.filter(region => region.id === "body").at(-1)!;
+  const signature = plan.regions.find(region => region.id === "signature")!;
+  assert(signature.page >= body.page);
+  if (signature.page === body.page) assert(signature.y >= body.y + body.height);
+});
+test("letterhead areas validate and guide manual positioning", async () => {
+  const layout = arrangeOnLetterhead(defaultLetterLayout(), { top: 120, bottom: 75, left: 54, right: 54 });
+  layout.blocks[0].y = 30;
+  await assert.rejects(planDocument(content, layout), /printable area/);
+  assert.throws(() => arrangeOnLetterhead(layout, { top: 800, bottom: 100, left: 54, right: 54 }), /too little room/);
+  assert.equal(layoutSchema.safeParse({ ...layout, contentArea: { top: 800, bottom: 100, left: 54, right: 54 } }).success, false);
+  const suggested = suggestedContentArea({ ...layout, pages: [{ width: 420, height: 595 }] });
+  assert(suggested.left + suggested.right < 420); assert(suggested.top + suggested.bottom < 595);
+});
+test("letterhead PDF keeps the uploaded artwork and reserves space for a long letter", async () => {
   await mkdir(".cache/letter-pdfs", { recursive: true });
-  const draft = await renderLetterPdf({ ...content, id: "HV-PREVIEW-2026-0001" }, true);
-  const approved = await renderLetterPdf({ ...content, id: "HV-APPROVED-2026-0001", approvedBy: owner.id }, false);
-  const long = await renderLetterPdf({ ...content, id: "HV-LONG-2026-0001", body: ("A long service statement with details of the candidate's work, responsibilities, and completion. ").repeat(160) }, false);
-  assert.equal((await PDFDocument.load(draft)).getPageCount(), 1);
-  assert((await PDFDocument.load(long)).getPageCount() > 1);
-  await writeFile(".cache/letter-pdfs/letter-draft.pdf", draft);
-  await writeFile(".cache/letter-pdfs/letter-approved.pdf", approved);
-  await writeFile(".cache/letter-pdfs/letter-long.pdf", long);
+  const template = await PDFDocument.create(), page = template.addPage([595.28, 841.89]);
+  page.drawText("HEXVAULT", { x: 54, y: 790, size: 22, color: rgb(0.12, 0.17, 0.23) });
+  page.drawText("LETTERHEAD / WORKFORCE OPERATIONS", { x: 54, y: 770, size: 9 });
+  page.drawLine({ start: { x: 54, y: 755 }, end: { x: 541, y: 755 }, thickness: 2, color: rgb(0.95, 0.38, 0.15) });
+  page.drawLine({ start: { x: 54, y: 55 }, end: { x: 541, y: 55 }, thickness: 1, color: rgb(0.6, 0.65, 0.7) });
+  page.drawText("HEXVAULT / Company correspondence", { x: 54, y: 38, size: 9 });
+  const bytes = await template.save();
+  await writeFile(".cache/letter-pdfs/letterhead-template.pdf", bytes);
+  const original = defaultLetterLayout();
+  original.background = { name: "letterhead-template.pdf", kind: "pdf", data: `data:application/pdf;base64,${Buffer.from(bytes).toString("base64")}` };
+  const layout = arrangeOnLetterhead(original, suggestedContentArea(original));
+  layout.blocks.find(block => block.id === "signature")!.text = "Jane Example\nHuman Resources";
+  const result = await buildLetterPdf({ ...content, id: "HV-LETTERHEAD", body: content.body.repeat(35), layout }, false);
+  assert(result.plan.pages.length > 1);
+  await writeFile(".cache/letter-pdfs/letterhead-preview.pdf", result.bytes);
+});
+test("body text flows across pages and signature follows its final line", async () => {
+  const layout = defaultLetterLayout();
+  const long = { ...content, body: "A detailed contribution to design, implementation, and testing of company operations. ".repeat(140) };
+  const plan = await planDocument(long, layout);
+  assert(plan.pages.length > 1);
+  const body = plan.regions.filter(region => region.id === "body"), signature = plan.regions.find(region => region.id === "signature")!;
+  const last = body.at(-1)!;
+  assert(signature.page >= last.page);
+  if (signature.page === last.page) assert(signature.y >= last.y + last.height + 27);
+  for (const region of plan.regions) {
+    assert(region.x + region.width <= plan.pages[region.page].width + 0.1);
+    assert(region.y + region.height <= plan.pages[region.page].height - layout.marginBottom + 0.1);
+  }
+  await mkdir(".cache/letter-pdfs", { recursive: true });
+  await writeFile(".cache/letter-pdfs/designer-long.pdf", await renderLetterPdf({ ...long, id: "HV-LONG", layout }, false));
+});
+test("signature starts on the next page when it cannot fit with its label", async () => {
+  const layout = defaultLetterLayout();
+  layout.pages = [{ width: 595.28, height: 300 }]; layout.marginTop = 30; layout.marginBottom = 30;
+  layout.blocks = [newTextBlock("body", { binding: "body", y: 210, width: 480 }), newTextBlock("signature", { text: "Authorized signatory\nHuman Resources", afterId: "body", gap: 28 })];
+  const plan = await planDocument({ ...content, body: "Completion confirmed." }, layout);
+  const signature = plan.regions.find(region => region.id === "signature")!;
+  assert.equal(signature.page, 1); assert.equal(signature.y, 30);
+});
+test("signature image and its following label stay together across a page break", async () => {
+  const layout = defaultLetterLayout();
+  layout.pages = [{ width: 595.28, height: 300 }]; layout.marginTop = 30; layout.marginBottom = 30;
+  layout.blocks = [newTextBlock("body", { binding: "body", y: 184, width: 480 }), newTextBlock("image", { kind: "image", image: "data:image/png;base64,AAAA", width: 100, height: 30, afterId: "body", gap: 10 }), newTextBlock("label", { text: "Jane Example\nHuman Resources", afterId: "image", gap: 8 })];
+  const plan = await planDocument({ ...content, body: "Confirmed." }, layout);
+  const image = plan.regions.find(region => region.id === "image")!, label = plan.regions.find(region => region.id === "label")!;
+  assert.equal(image.page, 1); assert.equal(label.page, 1); assert(label.y >= image.y + image.height + 8);
+});
+test("blank PDF template pages are valid backgrounds", async () => {
+  const blank = await PDFDocument.create(); blank.addPage([595.28, 841.89]);
+  const layout = defaultLetterLayout();
+  layout.background = { name: "blank.pdf", kind: "pdf", data: `data:application/pdf;base64,${Buffer.from(await blank.save()).toString("base64")}` };
+  const result = await renderLetterPdf({ ...content, id: "blank-template", layout }, false);
+  assert.equal((await PDFDocument.load(result)).getPageCount(), 1);
+});
+test("custom landscape pages, multi-page PDF templates, signature images, and font styles render", async () => {
+  const template = await PDFDocument.create();
+  for (let index = 0; index < 2; index++) { const page = template.addPage([841.89, 595.28]); page.drawRectangle({ x: 20, y: 20, width: 801.89, height: 555.28, borderColor: rgb(0.92, 0.4, 0.18), borderWidth: 2 }); }
+  const layout = defaultLetterLayout();
+  layout.pages = [{ width: 841.89, height: 595.28 }, { width: 841.89, height: 595.28 }];
+  layout.background = { name: "landscape-template.pdf", kind: "pdf", data: `data:application/pdf;base64,${Buffer.from(await template.save()).toString("base64")}` };
+  const signature = layout.blocks.find(block => block.id === "signature")!;
+  signature.fontFamily = "Times"; signature.italic = true; signature.bold = true;
+  layout.blocks.push(newTextBlock("stamp", { kind: "image", image: "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+jRZkAAAAASUVORK5CYII=", width: 70, height: 30, afterId: "signature" }));
+  const { bytes, plan } = await buildLetterPdf({ ...content, id: "HV-LANDSCAPE", layout }, false);
+  const pdf = await PDFDocument.load(bytes); assert.equal(pdf.getPageCount(), 2); assert.equal(pdf.getPage(0).getWidth(), 841.89);
+  assert.equal(plan.regions.find(region => region.id === "signature")?.lines[0].font, "Times-BoldItalic");
+  await writeFile(".cache/letter-pdfs/designer-landscape.pdf", bytes);
+  await writeFile(".cache/letter-pdfs/designer-draft.pdf", await renderLetterPdf({ ...content, id: "HV-DRAFT" }, true));
 });
